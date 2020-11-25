@@ -4,6 +4,7 @@ import java.io.FileInputStream;
 public class Main {
     public static void main(String[] args) throws Exception {
         TransactionManager t = new TransactionManager(10,20);
+        t.initialData();
         FileInputStream file = null;
         Scanner sc;
         if(args.length > 0){

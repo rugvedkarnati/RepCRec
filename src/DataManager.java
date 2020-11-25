@@ -1,24 +1,28 @@
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 
 public class DataManager {
-    HashMap<String,List<Integer>> db;
+    private class Data{ 
+        private int commitData; 
+        private int currentData; 
+        public Data(int commitData, int currentData) { 
+          this.commitData = commitData; 
+          this.currentData = currentData; 
+        } 
+    } 
+    HashMap<String,Data> db;
     public DataManager(){
         db = new HashMap<>();
     }
     public int readData(String variable){
-        return db.get(variable).get(1);
+        return db.get(variable).currentData;
     }
     public int readCommitData(String variable){
-        return db.get(variable).get(0);
+        return db.get(variable).commitData;
     }
     public boolean writeData(String variable,int value){
-        List<Integer> tup = new ArrayList<Integer>();
         try{
-            tup.add(null);
-            tup.add(value);
-            db.put(variable,tup);
+            int cData = db.get(variable).commitData;
+            db.put(variable,new Data(cData,value));
             return true;
         }
         catch(Exception e){
@@ -26,12 +30,12 @@ public class DataManager {
         }
     }
     public boolean commit(String variable){
-        int val = db.get(variable).get(1);
-        db.get(variable).set(0, val);
+        int val = db.get(variable).currentData;
+        db.get(variable).commitData = val;
         return true;
     }
     public void revertToCommit(String variable){
-        int val = db.get(variable).get(0);
-        db.get(variable).set(1, val);
+        int val = db.get(variable).commitData;
+        db.get(variable).currentData = val;
     }
 }
