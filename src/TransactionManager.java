@@ -91,12 +91,20 @@ public class TransactionManager {
         }
         else{
             while(siteNo<10){
-                result = sites[siteNo].writedata(t,variable,value);
-                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE) && !result.status){
+                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE) && !sites[siteNo].canGetWriteLock(t, variable)){
                     break;
                 }
                 siteNo ++;
             }
+            if(siteNo != 10) return result;
+
+            siteNo = 0;
+            while(siteNo<10){
+                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)) sites[siteNo].writedata(t, variable, value);
+                siteNo ++;
+            }
+
+
         }
         if(!result.status){
             if(siteNo < 10 && sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
