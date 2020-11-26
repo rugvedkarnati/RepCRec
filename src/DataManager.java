@@ -34,8 +34,4 @@ public class DataManager {
         db.get(variable).commitData = val;
         return true;
     }
-    public void revertToCommit(String variable){
-        int val = db.get(variable).commitData;
-        db.get(variable).currentData = val;
-    }
 }

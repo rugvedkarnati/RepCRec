@@ -32,13 +32,12 @@ public class Main {
                     t.endTransaction(s.substring(0,s.length()-1));
                     break;
                 case "fail": s = splitCommand[1];
-                    t.fail(s.substring(0,s.length()-1));
+                    t.fail(Integer.parseInt(s.substring(0,s.length()-1)));
                     break;
                 case "recover": s = splitCommand[1];
                     t.recover(s.substring(0,s.length()-1));
                     break;
-                case "dump": s = splitCommand[1];
-                    t.dump();
+                case "dump": t.dump();
                     break;
                 case "R": s = splitCommand[1];
                     String[] s1 = s.substring(0,s.length()-1).split(",");
@@ -48,6 +47,7 @@ public class Main {
                     String[] s2 = s.substring(0,s.length()-1).split(",");
                     t.writeRequest(s2[0],s2[1],s2[2]);
                     break;
+                default: break;
             }
         }
     }
