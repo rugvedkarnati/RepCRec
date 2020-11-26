@@ -19,7 +19,7 @@ public class LockManager {
         lockTable = new HashMap<>();
     }
     public SuccessFail getReadLock(Transaction t, String variable){
-        SuccessFail s = new SuccessFail();
+        SuccessFail s = new SuccessFail(false,-1,t.getName());
         LockTuple t1 = lockTable.get(variable);
         if(t1 == null){
             LockTuple l = new LockTuple(t,"R");
@@ -37,7 +37,7 @@ public class LockManager {
         return s;
     }
     public SuccessFail getWriteLock(Transaction t, String variable){
-        SuccessFail s = new SuccessFail();
+        SuccessFail s = new SuccessFail(false,-1,t.getName());
         LockTuple t1 = lockTable.get(variable);
         if(t1 == null){
             LockTuple l = new LockTuple(t,"W");

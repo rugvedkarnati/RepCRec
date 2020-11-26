@@ -9,7 +9,7 @@ public class Site {
         lm = new LockManager();
     }
     public SuccessFail readdata(Transaction t,String variable){
-        SuccessFail s = new SuccessFail();
+        SuccessFail s = new SuccessFail(false,-1,t.getName());
         if(status == SiteStatus.ACTIVE){
             s = lm.getReadLock(t,variable);
             if(s.status){
@@ -26,7 +26,7 @@ public class Site {
         return s;
     }
     public SuccessFail writedata(Transaction t,String variable,int value){
-        SuccessFail s = new SuccessFail();
+        SuccessFail s = new SuccessFail(false,-1,t.getName());
         if(status == SiteStatus.ACTIVE){
             s = lm.getWriteLock(t,variable);
             if(s.status){

@@ -1,5 +1,7 @@
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 public class TransactionManager {
     private class Operation{
@@ -16,7 +18,7 @@ public class TransactionManager {
     private int time;
     private int variables;
     private HashMap<String,Transaction> transactions;
-    private HashMap<String,ArrayList<Transaction>> waitsForGraph;
+    private HashMap<String,Set<String>> waitsForGraph;
     private HashMap<String,ArrayList<Operation>> waitOperations;
     public void initialData(){
         for(int i = 1;i<=20;i++){
@@ -47,6 +49,7 @@ public class TransactionManager {
         SuccessFail result = new SuccessFail(false,0,transaction);
         if(waitOperations.get(variable) != null){
             waitOperations.get(variable).add(new Operation("R", -1,transaction));
+            waitsForGraph.get(transaction).add(result.transaction);
             return result;
         }
         if(t.isReadOnly()){
@@ -71,8 +74,8 @@ public class TransactionManager {
             if(!result.status){
                 if(siteNo < 10 && sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
                     if(waitsForGraph.get(transaction) == null)
-                        waitsForGraph.put(transaction,new ArrayList<>());
-                    waitsForGraph.get(transaction).add(transactions.get(result.transaction));
+                        waitsForGraph.put(transaction,new HashSet<>());
+                    waitsForGraph.get(transaction).add(result.transaction);
                 }
                 if(waitOperations.get(variable) == null)
                     waitOperations.put(variable,new ArrayList<>());
@@ -135,8 +138,8 @@ public class TransactionManager {
         if(locked){
             result.status = false;
             if(waitsForGraph.get(transaction) == null)
-                waitsForGraph.put(transaction,new ArrayList<>());
-            waitsForGraph.get(transaction).add(transactions.get(result.transaction));
+                waitsForGraph.put(transaction,new HashSet<>());
+            waitsForGraph.get(transaction).add(result.transaction);
         }
         if(!activity){
             result.status = false;
@@ -165,6 +168,9 @@ public class TransactionManager {
         }
         // abort transaction if all sites down i.e siteNo = 10
         transactions.put(transaction,t);
+    }
+    public boolean deadlock(){
+        return true;
     }
     public void fail(int site){
         sites[site-1].changeStatus(Site.SiteStatus.FAIL);
