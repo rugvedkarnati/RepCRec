@@ -1,15 +1,15 @@
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Random;
 
 public class TransactionManager {
     private class Operation{
         public String opType;
         public int value;
-        public Operation(String opType,int value){
+        public String transaction;
+        public Operation(String opType,int value,String transaction){
             this.opType = opType;
             this.value = value;
+            this.transaction = transaction;
         }
     }
     private Site[] sites;
@@ -44,7 +44,11 @@ public class TransactionManager {
     public SuccessFail readRequest(String transaction, String variable){
         Transaction t = transactions.get(transaction);
         t.addOperation("Read",variable);
-        SuccessFail result = new SuccessFail();
+        SuccessFail result = new SuccessFail(false,0,transaction);
+        if(waitOperations.get(variable) != null){
+            waitOperations.get(variable).add(new Operation("R", -1,transaction));
+            return result;
+        }
         if(t.isReadOnly()){
             result.status = true;
             result.value = t.getVal(variable);
@@ -71,9 +75,9 @@ public class TransactionManager {
                     waitsForGraph.get(transaction).add(transactions.get(result.transaction));
                 }
                 if(waitOperations.get(variable) == null)
-                    waitsForGraph.put(variable,new ArrayList<>());
+                    waitOperations.put(variable,new ArrayList<>());
                     // deadlock check;
-                waitOperations.get(variable).add(new Operation("R",-1));
+                waitOperations.get(variable).add(new Operation("R",-1,transaction));
             }
             return result;
         }
@@ -82,40 +86,64 @@ public class TransactionManager {
     public SuccessFail writeRequest(String transaction, String variable, int value){
         Transaction t = transactions.get(transaction);
         t.addOperation("Write",variable);
-        SuccessFail result = new SuccessFail();
+        SuccessFail result = new SuccessFail(false,value,transaction);
+        if(waitOperations.get(variable) != null){
+            waitOperations.get(variable).add(new Operation("W", value,transaction));
+            return result;
+        }
         int siteNo = 0;
+        boolean locked = false;
+        boolean activity = false;
         int variableNo = Integer.parseInt(variable.substring(1, variable.length()-1));
         if(variableNo%2 == 1){
             siteNo = (variableNo%10);
             result = sites[siteNo].writedata(t,variable,value);
+            if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
+                if(!result.status){
+                    locked = true;
+                }
+                else{
+                    activity = true;
+                }
+            }
         }
         else{
             while(siteNo<10){
-                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE) && !sites[siteNo].canGetWriteLock(t, variable)){
-                    break;
+                result = sites[siteNo].canGetWriteLock(t, variable);
+                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
+                    if(!result.status){
+                        locked = true;
+                        break;
+                    }
+                    activity = true;
                 }
                 siteNo ++;
             }
-            if(siteNo != 10) return result;
+            // if(siteNo != 10) return result;
 
-            siteNo = 0;
-            while(siteNo<10){
-                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)) sites[siteNo].writedata(t, variable, value);
-                siteNo ++;
+            int siteNoTemp = 0;
+            if(activity && siteNo == 10){
+                while(siteNoTemp<10){
+                    if(sites[siteNoTemp].getStatus().equals(Site.SiteStatus.ACTIVE)){
+                        result = sites[siteNoTemp].writedata(t, variable, value);
+                    }
+                    siteNoTemp ++;
+                }
             }
-
 
         }
-        if(!result.status){
-            if(siteNo < 10 && sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
-                if(waitsForGraph.get(transaction) == null)
-                    waitsForGraph.put(transaction,new ArrayList<>());
-                waitsForGraph.get(transaction).add(transactions.get(result.transaction));
-            }
+        if(locked){
+            result.status = false;
+            if(waitsForGraph.get(transaction) == null)
+                waitsForGraph.put(transaction,new ArrayList<>());
+            waitsForGraph.get(transaction).add(transactions.get(result.transaction));
+        }
+        if(!activity){
+            result.status = false;
             if(waitOperations.get(variable) == null)
-                waitsForGraph.put(variable,new ArrayList<>());
+                waitOperations.put(variable,new ArrayList<>());
                 // deadlock check;
-            waitOperations.get(variable).add(new Operation("W",-1));
+            waitOperations.get(variable).add(new Operation("W",value,transaction));
         }
         return result;
     }
@@ -135,11 +163,12 @@ public class TransactionManager {
         if(siteNo<10){
             t.addToSnapshot(sites[siteNo].getDB());
         }
-        // abort transaction if all sites down
+        // abort transaction if all sites down i.e siteNo = 10
         transactions.put(transaction,t);
     }
     public void fail(int site){
         sites[site-1].changeStatus(Site.SiteStatus.FAIL);
+        // all transactions that accessed this site to be aborted
     }
     public void recover(int site){
         sites[site-1].changeStatus(Site.SiteStatus.RECOVER);

@@ -1,5 +1,10 @@
 public class SuccessFail {
-    public boolean status = false;
-    public int value = 0;
-    public String transaction = "";
+    public boolean status;
+    public int value;
+    public String transaction;
+    public SuccessFail(boolean status,int value,String transaction){
+        this.status = status;
+        this.value = value;
+        this.transaction = transaction;
+    }
 }

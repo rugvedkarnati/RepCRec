@@ -21,9 +21,9 @@ public class Site {
         }
         return s;
     }
-    public boolean canGetWriteLock(Transaction t,String variable){
+    public SuccessFail canGetWriteLock(Transaction t,String variable){
         SuccessFail s = lm.getWriteLock(t,variable);
-        return s.status;
+        return s;
     }
     public SuccessFail writedata(Transaction t,String variable,int value){
         SuccessFail s = new SuccessFail();

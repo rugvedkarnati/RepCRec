@@ -16,6 +16,7 @@ public class Main {
         }
         while(true){
             if(sc.nextLine().compareTo("exit") == 0){
+                sc.close();
                 break;
             }
             String command = sc.nextLine();
@@ -45,7 +46,7 @@ public class Main {
                     break;
                 case "W": s = splitCommand[1];
                     String[] s2 = s.substring(0,s.length()-1).split(",");
-                    t.writeRequest(s2[0],s2[1],s2[2]);
+                    t.writeRequest(s2[0],s2[1],Integer.parseInt(s2[2]));
                     break;
                 default: break;
             }
