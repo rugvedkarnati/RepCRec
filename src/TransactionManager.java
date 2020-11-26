@@ -4,11 +4,20 @@ import java.util.List;
 import java.util.Random;
 
 public class TransactionManager {
+    private class Operation{
+        public String opType;
+        public int value;
+        public Operation(String opType,int value){
+            this.opType = opType;
+            this.value = value;
+        }
+    }
     private Site[] sites;
     private int time;
     private int variables;
     private HashMap<String,Transaction> transactions;
     private HashMap<String,ArrayList<Transaction>> waitsForGraph;
+    private HashMap<String,ArrayList<Operation>> waitOperations;
     public void initialData(){
         for(int i = 1;i<=20;i++){
             if(i%2 == 1){
@@ -35,24 +44,70 @@ public class TransactionManager {
     public SuccessFail readRequest(String transaction, String variable){
         Transaction t = transactions.get(transaction);
         t.addOperation("Read",variable);
-        int variableNo = Integer.parseInt(variable.substring(1, variable.length()-1));
-        if(variableNo%2 == 1){
-            return sites[(variableNo%10)].readdata(t,variable);
-        }
-        int siteNo = -1;
-        SuccessFail result;
-        do{
-            siteNo += 1;
-            result = sites[siteNo].readdata(t,variable);
-        }while(siteNo < 10 && !result.status && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
-        if(siteNo == 10){
-            result.status = false;
+        SuccessFail result = new SuccessFail();
+        if(t.isReadOnly()){
+            result.status = true;
+            result.value = t.getVal(variable);
+            result.transaction = transaction;
+            return result;
         }
         else{
-            if(!result.status){
-                
+            int siteNo = -1;
+            int variableNo = Integer.parseInt(variable.substring(1, variable.length()-1));
+            if(variableNo%2 == 1){
+                siteNo = (variableNo%10);
+                result = sites[siteNo].readdata(t,variable);
             }
-            result.status = true;
+            else{
+                do{
+                    siteNo += 1;
+                    result = sites[siteNo].readdata(t,variable);
+                }while(siteNo < 10 && !result.status && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
+            }
+            if(!result.status){
+                if(siteNo < 10 && sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
+                    if(waitsForGraph.get(transaction) == null)
+                        waitsForGraph.put(transaction,new ArrayList<>());
+                    waitsForGraph.get(transaction).add(transactions.get(result.transaction));
+                }
+                if(waitOperations.get(variable) == null)
+                    waitsForGraph.put(variable,new ArrayList<>());
+                    // deadlock check;
+                waitOperations.get(variable).add(new Operation("R",-1));
+            }
+            return result;
+        }
+    }
+
+    public SuccessFail writeRequest(String transaction, String variable, int value){
+        Transaction t = transactions.get(transaction);
+        t.addOperation("Write",variable);
+        SuccessFail result = new SuccessFail();
+        int siteNo = 0;
+        int variableNo = Integer.parseInt(variable.substring(1, variable.length()-1));
+        if(variableNo%2 == 1){
+            siteNo = (variableNo%10);
+            result = sites[siteNo].writedata(t,variable,value);
+        }
+        else{
+            while(siteNo<10){
+                result = sites[siteNo].writedata(t,variable,value);
+                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE) && !result.status){
+                    break;
+                }
+                siteNo ++;
+            }
+        }
+        if(!result.status){
+            if(siteNo < 10 && sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
+                if(waitsForGraph.get(transaction) == null)
+                    waitsForGraph.put(transaction,new ArrayList<>());
+                waitsForGraph.get(transaction).add(transactions.get(result.transaction));
+            }
+            if(waitOperations.get(variable) == null)
+                waitsForGraph.put(variable,new ArrayList<>());
+                // deadlock check;
+            waitOperations.get(variable).add(new Operation("W",-1));
         }
         return result;
     }
@@ -64,7 +119,15 @@ public class TransactionManager {
     }
     public void beginROTransaction(String transaction){
         time += 1;
+        int siteNo = -1;
         Transaction t = new Transaction(transaction, true, Status.ACTIVE, time);
+        do{
+            siteNo += 1;
+        }while(siteNo < 10 && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
+        if(siteNo<10){
+            t.addToSnapshot(sites[siteNo].getDB());
+        }
+        // abort transaction if all sites down
         transactions.put(transaction,t);
     }
     public void fail(int site){

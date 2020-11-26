@@ -31,6 +31,21 @@ public class LockManager {
             s.status = true;
         }
         else{
+            s.transaction = t1.transactionList.get(0).getName();
+            s.status = false;
+        }
+        return s;
+    }
+    public SuccessFail getWriteLock(Transaction t, String variable){
+        SuccessFail s = new SuccessFail();
+        LockTuple t1 = lockTable.get(variable);
+        if(t1 == null){
+            LockTuple l = new LockTuple(t,"W");
+            lockTable.put(variable, l);
+            s.status = true;
+        }
+        else{
+            s.transaction = t1.transactionList.get(0).getName();
             s.status = false;
         }
         return s;

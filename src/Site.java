@@ -1,3 +1,4 @@
+import java.util.Map;
 public class Site {
     public enum SiteStatus{ACTIVE,FAIL,RECOVER};
     DataManager dm;
@@ -20,10 +21,30 @@ public class Site {
         }
         return s;
     }
+    public SuccessFail canGetWriteLock(Transaction t,String variable){
+        SuccessFail s = new SuccessFail();
+
+    }
+    public SuccessFail writedata(Transaction t,String variable,int value){
+        SuccessFail s = new SuccessFail();
+        if(status == SiteStatus.ACTIVE){
+            s = lm.getWriteLock(t,variable);
+            if(s.status){
+                s.status = dm.writeData(variable,value);
+            }
+        }
+        else{
+            s.status = false;
+        }
+        return s;
+    }
     public void changeStatus(SiteStatus status){
         this.status = status;
     }
     public SiteStatus getStatus(){
         return status;
+    }
+    public Map<String,Integer> getDB(){
+        return dm.getDB();
     }
 }

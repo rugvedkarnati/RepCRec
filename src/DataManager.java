@@ -1,4 +1,5 @@
 import java.util.HashMap;
+import java.util.Map;
 
 public class DataManager {
     private class Data{ 
@@ -7,8 +8,8 @@ public class DataManager {
         public Data(int commitData, int currentData) { 
           this.commitData = commitData; 
           this.currentData = currentData; 
-        } 
-    } 
+        }
+    }
     HashMap<String,Data> db;
     public DataManager(){
         db = new HashMap<>();
@@ -33,5 +34,12 @@ public class DataManager {
         int val = db.get(variable).currentData;
         db.get(variable).commitData = val;
         return true;
+    }
+    public Map<String,Integer> getDB(){
+        HashMap<String,Integer> tempDB = new HashMap<>();
+        db.forEach((variable,data) -> {
+            tempDB.put(variable, data.commitData);
+        });
+        return tempDB;
     }
 }
