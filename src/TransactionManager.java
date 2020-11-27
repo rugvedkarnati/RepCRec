@@ -92,22 +92,21 @@ public class TransactionManager {
         SuccessFail result = new SuccessFail(false,value,transaction);
         if(waitOperations.get(variable) != null){
             waitOperations.get(variable).add(new Operation("W", value,transaction));
+            waitsForGraph.get(transaction).add(result.transaction);
             return result;
         }
         int siteNo = 0;
-        boolean locked = false;
-        boolean activity = false;
+        boolean islocked = false;
+        boolean isactive = false;
         int variableNo = Integer.parseInt(variable.substring(1, variable.length()-1));
         if(variableNo%2 == 1){
             siteNo = (variableNo%10);
             result = sites[siteNo].writedata(t,variable,value);
             if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
                 if(!result.status){
-                    locked = true;
+                    islocked = true;
                 }
-                else{
-                    activity = true;
-                }
+                isactive = true;
             }
         }
         else{
@@ -115,17 +114,17 @@ public class TransactionManager {
                 result = sites[siteNo].canGetWriteLock(t, variable);
                 if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
                     if(!result.status){
-                        locked = true;
+                        islocked = true;
                         break;
                     }
-                    activity = true;
+                    isactive = true;
                 }
                 siteNo ++;
             }
             // if(siteNo != 10) return result;
 
             int siteNoTemp = 0;
-            if(activity && siteNo == 10){
+            if(!islocked && isactive && siteNo == 10){
                 while(siteNoTemp<10){
                     if(sites[siteNoTemp].getStatus().equals(Site.SiteStatus.ACTIVE)){
                         result = sites[siteNoTemp].writedata(t, variable, value);
@@ -135,13 +134,13 @@ public class TransactionManager {
             }
 
         }
-        if(locked){
+        if(islocked){
             result.status = false;
             if(waitsForGraph.get(transaction) == null)
                 waitsForGraph.put(transaction,new HashSet<>());
             waitsForGraph.get(transaction).add(result.transaction);
         }
-        if(!activity){
+        if(!result.status){
             result.status = false;
             if(waitOperations.get(variable) == null)
                 waitOperations.put(variable,new ArrayList<>());
