@@ -46,14 +46,18 @@ public class TransactionManager {
     }
     TransactionManager(int siteCount,int variables){
         this.sites = new Site[siteCount];
+        for(int i=0;i<siteCount;i++){
+            sites[i] = new Site();
+        }
         this.variables = variables;
         transactions = new HashMap<>();
         waitsForGraph = new HashMap<>();
+        waitOperations = new HashMap<>();
         time = 0;
     }
     public SuccessFail readRequest(String transaction, String variable){
         Transaction t = transactions.get(transaction);
-        t.addOperation("Read",variable);
+        // t.addOperation("Read",variable);
         SuccessFail result = new SuccessFail(false,0,transaction);
         if(waitOperations.get(variable) != null){
             waitOperations.get(variable).add(new Operation("R", -1,transaction));
@@ -121,7 +125,7 @@ public class TransactionManager {
 
     public SuccessFail writeRequest(String transaction, String variable, int value){
         Transaction t = transactions.get(transaction);
-        t.addOperation("Write",variable);
+        // t.addOperation("Write",variable);
         SuccessFail result = new SuccessFail(false,value,transaction);
         if(waitOperations.get(variable) != null){
             waitOperations.get(variable).add(new Operation("W", value,transaction));
@@ -131,7 +135,8 @@ public class TransactionManager {
         int siteNo = 0;
         boolean islocked = false;
         boolean isactive = false;
-        int variableNo = Integer.parseInt(variable.substring(1, variable.length()-1));
+
+        int variableNo = Integer.parseInt(variable.substring(1, variable.length()));
         if(variableNo%2 == 1){
             siteNo = (variableNo%10);
             result = sites[siteNo].writedata(transaction,variable,value);
@@ -232,7 +237,7 @@ public class TransactionManager {
         }
     }
 
-    public void end(String transaction){
+    public void endTransaction(String transaction){
         time++;
         if(transactions.get(transaction).getStatus().equals(Status.ACTIVE)){
             commit(transaction);

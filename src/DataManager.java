@@ -23,6 +23,9 @@ public class DataManager {
 
     public DataManager(){
         db = new HashMap<>();
+        for(int i = 1;i<=20;i++){
+            db.put("x".concat(Integer.toString(i)),new Data(0,0));
+        }
     }
 
     // Reading Data from the HashMap
