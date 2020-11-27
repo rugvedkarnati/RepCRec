@@ -1,6 +1,4 @@
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class LockManager {
 
@@ -8,9 +6,9 @@ public class LockManager {
     private class LockTuple{
         ArrayList<String> transactionList;
         String lockType;
-        LockTuple(String t,String lockType){
+        LockTuple(String transaction,String lockType){
             transactionList = new ArrayList<>();
-            transactionList.add(t);
+            transactionList.add(transaction);
             this.lockType = lockType;
         }
     }
@@ -25,55 +23,52 @@ public class LockManager {
     // getReadLock returns true if the transactions can get the lock
     // for the given variable or else it returns false. 
     // If the variable is not locked transaction is added to the locktable.
-    public SuccessFail getReadLock(String t, String variable){
-        SuccessFail s = new SuccessFail(false,-1,"");
-        LockTuple t1 = lockTable.get(variable);
-        if(t1 == null){
-            LockTuple l = new LockTuple(t,"R");
-            lockTable.put(variable, l);
-            s.status = true;
+    public SuccessFail getReadLock(String transaction, String variable){
+        SuccessFail result = new SuccessFail(false,-1,"");
+        LockTuple locktuple = lockTable.get(variable);
+        if(locktuple == null){
+            LockTuple newlocktuple = new LockTuple(transaction,"R");
+            lockTable.put(variable, newlocktuple);
+            result.status = true;
         }
-        else if(t1.lockType.compareTo("R") == 0){
-            lockTable.get(variable).transactionList.add(t);
-            s.status = true;
+        else if(locktuple.lockType.compareTo("R") == 0 || locktuple.lockType.compareTo("W") == 0){
+            lockTable.get(variable).transactionList.add(transaction);
+            result.status = true;
         }
         else{
-            s.transaction = t1.transactionList.get(0);
-            s.status = false;
+            result.transaction = locktuple.transactionList.get(0);
+            result.status = false;
         }
-        return s;
+        return result;
     }
 
     // getWriteLock returns true if the transactions can get the lock
     // for the given variable or else it returns false.
     // If the variable is not locked transaction is added to the locktable.
-    public SuccessFail getWriteLock(String t, String variable){
-        SuccessFail s = new SuccessFail(false,-1,"");
-        LockTuple t1 = lockTable.get(variable);
-        if(t1 == null){
-            LockTuple l = new LockTuple(t,"W");
-            lockTable.put(variable, l);
-            s.status = true;
+    public SuccessFail getWriteLock(String transaction, String variable){
+        SuccessFail result = new SuccessFail(false,-1,"");
+        LockTuple locktuple = lockTable.get(variable);
+        if(locktuple == null){
+            LockTuple newlocktuple = new LockTuple(transaction,"W");
+            lockTable.put(variable, newlocktuple);
+            result.status = true;
         }
-        else if(t1.transactionList.contains(t)){
-            s.status = true;
+        else if(locktuple.transactionList.contains(transaction) && locktuple.transactionList.size() == 1){
+            locktuple.lockType = "W";
+            result.status = true;
         }
         else{
-            s.transaction = t1.transactionList.get(0);
-            s.status = false;
+            result.transaction = locktuple.transactionList.get(0);
+            result.status = false;
         }
-        return s;
+        return result;
     }
 
     public void removeLock(String variable,String t){
-        System.out.println("before remove");
-        System.out.println(lockTable);
         lockTable.get(variable).transactionList.remove(t);
         if(lockTable.get(variable).transactionList.isEmpty()){
             lockTable.remove(variable);
         }
-        System.out.println("after remove");
-        System.out.println(lockTable);
     }
 
     public void abortornot(Map<String,Transaction> transactions){

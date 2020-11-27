@@ -1,8 +1,4 @@
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class DataManager {
 
@@ -11,10 +7,10 @@ public class DataManager {
         private int commitData; 
         private int currentData;
         private ArrayList<List<Integer>> commitInfo;
-        public Data(int commitData, int currentData) { 
+        public Data(int commitData, int currentData, ArrayList<List<Integer>> commitInfo) { 
           this.commitData = commitData; 
           this.currentData = currentData;
-          commitInfo = new ArrayList<>();
+          this.commitInfo= commitInfo;
         }
     }
 
@@ -24,7 +20,7 @@ public class DataManager {
     public DataManager(){
         db = new HashMap<>();
         for(int i = 1;i<=20;i++){
-            db.put("x".concat(Integer.toString(i)),new Data(0,0));
+            db.put("x".concat(Integer.toString(i)),new Data(0,0,new ArrayList<>()));
         }
     }
 
@@ -42,7 +38,8 @@ public class DataManager {
     public boolean writeData(String variable,int value){
         try{
             int cData = db.get(variable).commitData;
-            db.put(variable,new Data(cData,value));
+            ArrayList<List<Integer>> commitHistory = db.get(variable).commitInfo;
+            db.put(variable,new Data(cData,value,commitHistory));
             return true;
         }
         catch(Exception e){
@@ -54,10 +51,7 @@ public class DataManager {
     public boolean commit(String variable,int commitTime){
         int val = db.get(variable).currentData;
         db.get(variable).commitData = val;
-        // if(db.get(variable).commitInfo.isEmpty()){
-        //     db.get(variable).commitInfo = new ArrayList<>();   
-        // }
-        System.out.println("DAMNN");
+       
         List<Integer> tempList = new ArrayList<>();
         tempList.add(commitTime);
         tempList.add(val);
@@ -75,6 +69,9 @@ public class DataManager {
     }
     public List<Integer> findData(String variable,int time){
         ArrayList<List<Integer>> time_data_list = db.get(variable).commitInfo;
+        System.out.println("------------");
+        System.out.println(time_data_list);
+        System.out.println("------------");
         if(time_data_list.get(time_data_list.size()-1).get(0) < time){
             return time_data_list.get(time_data_list.size()-1);
         }
@@ -92,7 +89,4 @@ public class DataManager {
         }
         return time_data_list.get(low);
     }
-    // public int getcommitTime(String variable){
-    //     return db.get(variable).commitInfo;
-    // }
 }

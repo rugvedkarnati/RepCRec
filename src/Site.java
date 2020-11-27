@@ -1,6 +1,5 @@
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.List;
+import java.util.*;
+
 public class Site {
     public enum SiteStatus{ACTIVE,FAIL,RECOVER};
     DataManager dm;
@@ -75,7 +74,6 @@ public class Site {
     }
 
     public List<Integer> finddata(String variable,int time){
-        System.out.println(variable+" "+Integer.toString(siteNo));
         return dm.findData(variable, time);
     }
 
@@ -91,10 +89,7 @@ public class Site {
 
     public void initialWrite(){
         for(int i = 1;i<=20;i++){
-            System.out.println(siteNo);
-            System.out.println(i);
             if(i%2 == 1 && siteNo == 1+i%10){
-                System.out.println("Odd variable");
                 String variable = "x".concat(Integer.toString(i));
                 dm.writeData(variable, 10*(i));
                 dm.commit(variable, 0);

@@ -85,7 +85,6 @@ public class TransactionManager {
             }
             else{
                 for(int siteNo = 0; siteNo<10;siteNo++){
-                    System.out.println(siteNo);
                     result = snapshotResult(t, variable, siteNo);
                     if(result.status){
                         break;
@@ -113,7 +112,6 @@ public class TransactionManager {
                         waitsForGraph.put(transaction,new HashSet<>());
                     waitsForGraph.get(transaction).add(result.transaction);
                     SuccessFail cycle_result = check_deadlock();
-                    System.out.println(cycle_result.status);
                     if(cycle_result.status){
                         abort(cycle_result.transaction);
                     }
@@ -131,11 +129,11 @@ public class TransactionManager {
         Transaction t = transactions.get(transaction);
         // t.addOperation("Write",variable);
         SuccessFail result = new SuccessFail(false,value,transaction);
-        for(Operation oper:waitOperations.getOrDefault(variable,new ArrayList<>())){
-            System.out.println("Variable:"+variable+", operation: "+oper.transaction+oper.opType+Integer.toString(oper.value));
-        }
+        // for(Operation oper:waitOperations.getOrDefault(variable,new ArrayList<>())){
+        //     System.out.println("Variable:"+variable+", operation: "+oper.transaction+oper.opType+Integer.toString(oper.value));
+        // }
         if(waitOperations.get(variable) != null){
-            System.out.println("Variable:"+variable);
+            // System.out.println("Variable:"+variable);
             waitOperations.get(variable).add(new Operation("W", value,transaction));
             waitsForGraph.get(transaction).add(result.transaction);
             return result;
@@ -158,7 +156,7 @@ public class TransactionManager {
         else{
             while(siteNo<10){
                 result = sites[siteNo].canGetWriteLock(transaction, variable);
-                System.out.println("Write Lock"+Boolean.toString(result.status)+", Transacation:"+result.transaction);
+                // System.out.println("Write Lock"+Boolean.toString(result.status)+", Transacation:"+result.transaction);
                 if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
                     if(!result.status){
                         islocked = true;
@@ -194,7 +192,7 @@ public class TransactionManager {
                 waitsForGraph.put(transaction,new HashSet<>());
             waitsForGraph.get(transaction).add(result.transaction);
             SuccessFail cycle_result = check_deadlock();
-            System.out.println(cycle_result.status);
+            // System.out.println(cycle_result.status);
             if(cycle_result.status){
                 abort(cycle_result.transaction);
             }
@@ -224,7 +222,6 @@ public class TransactionManager {
     }
 
     private void release_locks(String transaction,boolean commit) {
-        System.out.println("release="+transaction);
         HashMap<String,String> locktable = transactions.get(transaction).getLocktable();
         for(Map.Entry<String,String> lock: locktable.entrySet()) {
             String variable = lock.getKey();
@@ -250,7 +247,6 @@ public class TransactionManager {
                     result = readRequest(nextOperation.transaction, variable);
                 }
                 else if(nextOperation.opType == "W"){
-                    System.out.println("Write Request");
                     result = writeRequest(nextOperation.transaction, variable, nextOperation.value);
                 }
                 check = result.status;
@@ -261,7 +257,6 @@ public class TransactionManager {
     public void endTransaction(String transaction){
         time++;
         if(transactions.get(transaction).getStatus().equals(Status.ACTIVE)){
-            System.out.println("transaction="+transaction);
             commit(transaction);
         }
         else if(transactions.get(transaction).getStatus().equals(Status.TO_BE_ABORTED)){
@@ -297,8 +292,6 @@ public class TransactionManager {
     }
 
     private SuccessFail dfs(String u, HashSet<String> visited, HashSet<String> recursion_stack, String youngest_transaction) {
-        System.out.println("u="+u);
-        System.out.println(visited);
         visited.add(u);
         recursion_stack.add(u);
         if(transactions.get(u).getStartTime() > transactions.get(youngest_transaction).getStartTime()) youngest_transaction = u;
@@ -316,7 +309,6 @@ public class TransactionManager {
     private SuccessFail check_deadlock(){
         HashSet<String> visited = new HashSet<>();
         HashSet<String> recursion_stack = new HashSet<>();
-        System.out.println(waitsForGraph);
         for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
             String u = (String)mapElement.getKey(); 
             if(!visited.contains(u)) {
