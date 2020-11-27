@@ -21,6 +21,7 @@ public class TransactionManager {
     private HashMap<String,Transaction> transactions;
     private HashMap<String,Set<String>> waitsForGraph;
     private HashMap<String,ArrayList<Operation>> waitOperations;
+
     public void initialData(){
         for(int i = 1;i<=20;i++){
             if(i%2 == 1){
@@ -83,6 +84,7 @@ public class TransactionManager {
                     // deadlock check;
                 waitOperations.get(variable).add(new Operation("R",-1,transaction));
             }
+            if(result.status) transactions.get(transaction).addToLocktable(variable, "R");
             return result;
         }
     }
@@ -135,19 +137,21 @@ public class TransactionManager {
             }
 
         }
+        if(!result.status){
+            result.status = false;
+            if(waitOperations.get(variable) == null)
+                waitOperations.put(variable,new ArrayList<>());
+            waitOperations.get(variable).add(new Operation("W",value,transaction));
+        }
+
         if(islocked){
             result.status = false;
             if(waitsForGraph.get(transaction) == null)
                 waitsForGraph.put(transaction,new HashSet<>());
             waitsForGraph.get(transaction).add(result.transaction);
+
         }
-        if(!result.status){
-            result.status = false;
-            if(waitOperations.get(variable) == null)
-                waitOperations.put(variable,new ArrayList<>());
-                // deadlock check;
-            waitOperations.get(variable).add(new Operation("W",value,transaction));
-        }
+        if(result.status) transactions.get(transaction).addToLocktable(variable, "W");
         return result;
     }
 
@@ -170,29 +174,55 @@ public class TransactionManager {
         transactions.put(transaction,t);
     }
 
+    private void release_locks(String transaction) {
+        HashMap<String,String> locktable = transactions.get(transaction).getLocktable();
+        for(Map.Entry<String,String> lock: locktable.entrySet()) {
+            String variable = lock.getKey();
+            String locktype = lock.getValue();
+
+            Operation nextOperation = waitOperations.get(variable).remove(0);
+            if(waitOperations.get(variable).size() == 0) waitOperations.remove(variable);
+            
+            if(nextOperation.opType == "R") readRequest(nextOperation.transaction, variable);
+            else if(nextOperation.opType == "W") writeRequest(nextOperation.transaction, variable, nextOperation.value);
+        }
+    }
+
+    public void remove_deadlock(String youngest_transaction) {
+        waitsForGraph.remove(youngest_transaction);
+        for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
+            mapElement.getValue().remove(youngest_transaction);
+        }
+       
+
+    }
+
     private SuccessFail dfs(String u, HashSet<String> visited, HashSet<String> recursion_stack, String youngest_transaction) {
         visited.add(u);
         recursion_stack.add(u);
-        if(transactions.get(u).)
+        if(transactions.get(u).getStartTime() > transactions.get(youngest_transaction).getStartTime()) youngest_transaction = u;
         for(String v : waitsForGraph.get(u)) {
-            if(!visited.contains(v) && dfs(v,visited,recursion_stack)) return true;
-            else if(recursion_stack.contains(v)) return true;
+            if(!visited.contains(v)) {
+                SuccessFail cycle_result = dfs(v,visited,recursion_stack,youngest_transaction);
+                if(cycle_result.status) return cycle_result;
+            } 
+            else if(recursion_stack.contains(v)) return new SuccessFail(true,-1,youngest_transaction);
         }
         recursion_stack.remove(u);
-        return false;
+        return new SuccessFail(false, -1, youngest_transaction);
     }
 
-    public boolean deadlock(){
+    private SuccessFail check_deadlock(){
         HashSet<String> visited = new HashSet<>();
         HashSet<String> recursion_stack = new HashSet<>();
         for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
             String u = (String)mapElement.getKey(); 
             if(!visited.contains(u)) {
                 SuccessFail cycle_result = dfs(u, visited,recursion_stack, u);
+                if(cycle_result.status) return cycle_result;
             } 
         } 
-
-        return true;
+        return new SuccessFail(false, -1, "");
     }
 
     public void fail(int site){

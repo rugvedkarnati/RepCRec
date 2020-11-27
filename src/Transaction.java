@@ -1,11 +1,13 @@
 import java.util.HashMap;
 import java.util.Map;
+
 public class Transaction {
     private String name;
     private boolean isRO;
     private Status tStatus;
     private int startTime;
     private HashMap<String,String> operations;
+    private HashMap<String,String> locktable;
 
     // Used for ReadOnly Operations. Contains a snapshot of the database.
     private HashMap<String,Integer> snapshot;
@@ -24,8 +26,21 @@ public class Transaction {
     public boolean isReadOnly(){
         return isRO;
     }
+
     public String getName(){
         return name;
+    }
+
+    public int getStartTime(){
+        return startTime;
+    }
+
+    public HashMap<String,String> getLocktable() {
+        return locktable;
+    }
+
+    public void addToLocktable(String variable, String type) {
+        locktable.put(variable, type);
     }
 
     // Adds the data from the database to the snapshot
