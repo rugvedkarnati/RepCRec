@@ -37,8 +37,8 @@ public class Site {
     // Writes data to the database for this site using the datamanager.
     // Returns False if the site is down.
     public SuccessFail writedata(String t,String variable,int value){
-        SuccessFail s = new SuccessFail(false,-1,t.getName());
-        if(status == SiteStatus.ACTIVE){
+        SuccessFail s = new SuccessFail(false,-1,t);
+        if(!status.equals(SiteStatus.FAIL)){
             s = lm.getWriteLock(t,variable);
             if(s.status){
                 s.status = dm.writeData(variable,value);
@@ -80,8 +80,4 @@ public class Site {
     // public ArrayList<Integer> getCommitTime(String variable){
     //     return dm.getcommitTime(variable);
     // }
-
-    public void commit(String transaction){
-        lm.getVar(transaction).foreach();
-    }
 }
