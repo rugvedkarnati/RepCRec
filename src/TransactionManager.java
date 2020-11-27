@@ -188,10 +188,10 @@ public class TransactionManager {
         }
     }
 
-    public void remove_deadlock(String youngest_transaction) {
-        waitsForGraph.remove(youngest_transaction);
+    public void abort(String transaction) {
+        waitsForGraph.remove(transaction);
         for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
-            mapElement.getValue().remove(youngest_transaction);
+            mapElement.getValue().remove(transaction);
         }
        
 
