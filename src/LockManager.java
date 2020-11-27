@@ -66,10 +66,14 @@ public class LockManager {
     }
 
     public void removeLock(String variable,String t){
+        System.out.println("before remove");
+        System.out.println(lockTable);
         lockTable.get(variable).transactionList.remove(t);
         if(lockTable.get(variable).transactionList.isEmpty()){
             lockTable.remove(variable);
         }
+        System.out.println("after remove");
+        System.out.println(lockTable);
     }
 
     public void abortornot(Map<String,Transaction> transactions){

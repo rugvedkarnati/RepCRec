@@ -54,13 +54,14 @@ public class DataManager {
     public boolean commit(String variable,int commitTime){
         int val = db.get(variable).currentData;
         db.get(variable).commitData = val;
-        if(db.containsKey(variable)){
+        if(!db.get(variable).commitInfo.isEmpty()){
             List<Integer> tempList = new ArrayList<>();
             tempList.add(commitTime);
             tempList.add(val);
             db.get(variable).commitInfo.add(tempList);
         }
         else{
+            System.out.println("DAMNN");
             db.get(variable).commitInfo = new ArrayList<>();
         }
         return true;
@@ -75,23 +76,23 @@ public class DataManager {
         return tempDB;
     }
     public List<Integer> findData(String variable,int time){
-        ArrayList<List<Integer>> temp = db.get(variable).commitInfo;
-        if(temp.get(temp.size()-1).get(0) < time){
-            return temp.get(temp.size()-1);
+        ArrayList<List<Integer>> time_data_list = db.get(variable).commitInfo;
+        if(time_data_list.get(time_data_list.size()-1).get(0) < time){
+            return time_data_list.get(time_data_list.size()-1);
         }
         int low = 0;
-        int high = temp.size()-1;
+        int high = time_data_list.size()-1;
         int mid;
         while(low<high){
             mid = (int)(low+high)/2;
-            if(temp.get(mid).get(0) >= time){
+            if(time_data_list.get(mid).get(0) >= time){
                 high = mid;
             }
             else{
                 low = mid+1;
             }
         }
-        return temp.get(low);
+        return time_data_list.get(low);
     }
     // public ArrayList<Integer> getcommitTime(String variable){
     //     return db.get(variable).commitInfo;

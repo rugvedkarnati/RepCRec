@@ -3,7 +3,6 @@ import java.io.FileInputStream;
 public class Main {
     public static void main(String[] args) throws Exception {
         TransactionManager t = new TransactionManager(10,20);
-        t.initialData();
         FileInputStream file = null;
         Scanner sc;
         if(args.length > 0){
@@ -13,15 +12,10 @@ public class Main {
         else{
             sc = new Scanner(System.in);
         }
-        while(true){
-            String command = sc.nextLine();
-            if(command.compareTo("exit") == 0){
-                sc.close();
-                break;
-            }
+        while(sc.hasNextLine()){
+            String command = sc.nextLine().strip();
             System.out.println(command);
             String[] splitCommand = command.split("\\(");
-            System.out.println(splitCommand);
             String s = "";
             SuccessFail result;
             switch(splitCommand[0]){
@@ -40,13 +34,13 @@ public class Main {
                 case "recover": s = splitCommand[1];
                     t.recover(Integer.parseInt(s.substring(0,s.length()-1)));
                     break;
-                case "dump": //t.dump();
+                case "dump": t.dump();
                     break;
                 case "R": s = splitCommand[1];
                     String[] s1 = s.substring(0,s.length()-1).split(",");
                     result = t.readRequest(s1[0],s1[1]);
                     if(result.status){
-                        System.out.println("SUCCESS");
+                        System.out.println("SUCCESS: "+Integer.toString(result.value));
                     }
                     else if(result.transaction.equals("")){
                         System.out.println("FAIL");
@@ -71,5 +65,6 @@ public class Main {
                 default: break;
             }
         }
+        sc.close();
     }
 }

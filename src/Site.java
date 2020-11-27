@@ -5,11 +5,14 @@ public class Site {
     public enum SiteStatus{ACTIVE,FAIL,RECOVER};
     DataManager dm;
     LockManager lm;
+    private int siteNo;
     public SiteStatus status;
-    public Site(){
+    public Site(int siteNo){
         dm = new DataManager();
         lm = new LockManager();
+        this.siteNo = siteNo;
         status = SiteStatus.ACTIVE;
+        initialWrite();
     }
 
     // Checks whether the transaction can get a lock for the given variable.
@@ -72,6 +75,7 @@ public class Site {
     }
 
     public List<Integer> finddata(String variable,int time){
+        System.out.println(variable+" "+Integer.toString(siteNo));
         return dm.findData(variable, time);
     }
 
@@ -81,4 +85,25 @@ public class Site {
     // public ArrayList<Integer> getCommitTime(String variable){
     //     return dm.getcommitTime(variable);
     // }
+    public int getCommit(String variable){
+        return dm.readCommitData(variable);
+    }
+
+    public void initialWrite(){
+        for(int i = 1;i<=20;i++){
+            System.out.println(siteNo);
+            System.out.println(i);
+            if(i%2 == 1 && siteNo == 1+i%10){
+                System.out.println("Odd variable");
+                String variable = "x".concat(Integer.toString(i));
+                dm.writeData(variable, 10*(i));
+                dm.commit(variable, 0);
+            }
+            else if(i%2 == 0){
+                String variable = "x".concat(Integer.toString(i));
+                dm.writeData(variable, 10*(i));
+                dm.commit(variable, 0);
+            }
+        }
+    }
 }
