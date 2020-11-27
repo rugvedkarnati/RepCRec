@@ -54,16 +54,14 @@ public class DataManager {
     public boolean commit(String variable,int commitTime){
         int val = db.get(variable).currentData;
         db.get(variable).commitData = val;
-        if(!db.get(variable).commitInfo.isEmpty()){
-            List<Integer> tempList = new ArrayList<>();
-            tempList.add(commitTime);
-            tempList.add(val);
-            db.get(variable).commitInfo.add(tempList);
-        }
-        else{
-            System.out.println("DAMNN");
-            db.get(variable).commitInfo = new ArrayList<>();
-        }
+        // if(db.get(variable).commitInfo.isEmpty()){
+        //     db.get(variable).commitInfo = new ArrayList<>();   
+        // }
+        System.out.println("DAMNN");
+        List<Integer> tempList = new ArrayList<>();
+        tempList.add(commitTime);
+        tempList.add(val);
+        db.get(variable).commitInfo.add(tempList);
         return true;
     }
 
@@ -94,7 +92,7 @@ public class DataManager {
         }
         return time_data_list.get(low);
     }
-    // public ArrayList<Integer> getcommitTime(String variable){
+    // public int getcommitTime(String variable){
     //     return db.get(variable).commitInfo;
     // }
 }
