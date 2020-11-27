@@ -6,7 +6,10 @@ public class Transaction {
     private Status tStatus;
     private int startTime;
     private HashMap<String,String> operations;
+
+    // Used for ReadOnly Operations. Contains a snapshot of the database.
     private HashMap<String,Integer> snapshot;
+
     public Transaction(String name,boolean isRO,Status status,int startTime){
         this.name = name;
         this.isRO = isRO;
@@ -16,15 +19,21 @@ public class Transaction {
     public void addOperation(String operation,String data){
         operations.put(operation,data);
     }
+
+    // Returns whether a transaction is readonly
     public boolean isReadOnly(){
         return isRO;
     }
     public String getName(){
         return name;
     }
+
+    // Adds the data from the database to the snapshot
     public void addToSnapshot(Map<String,Integer> db){
         snapshot = new HashMap<String,Integer>(db);
     }
+
+    // Gets the value for the variable for a read only transaction
     public int getVal(String variable){
         return snapshot.get(variable);
     }

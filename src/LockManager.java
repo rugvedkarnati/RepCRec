@@ -1,7 +1,10 @@
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 
 public class LockManager {
+
+    // LockTuple class is used to store the type of lock and the transactions which hold the lock
     private class LockTuple{
         ArrayList<Transaction> transactionList;
         String lockType;
@@ -10,14 +13,18 @@ public class LockManager {
             transactionList.add(t);
             this.lockType = lockType;
         }
-        // public void add(Transaction t){
-        //     transactionList.add(t);
-        // }
     }
-    public HashMap<String,LockTuple> lockTable;
+
+    // lockTable contains the locks held by different transactions for different variables
+    public Map<String,LockTuple> lockTable;
+
     public LockManager(){
         lockTable = new HashMap<>();
     }
+
+    // getReadLock returns true if the transactions can get the lock
+    // for the given variable or else it returns false. 
+    // If the variable is not locked transaction is added to the locktable.
     public SuccessFail getReadLock(Transaction t, String variable){
         SuccessFail s = new SuccessFail(false,-1,t.getName());
         LockTuple t1 = lockTable.get(variable);
@@ -36,6 +43,10 @@ public class LockManager {
         }
         return s;
     }
+
+    // getWriteLock returns true if the transactions can get the lock
+    // for the given variable or else it returns false.
+    // If the variable is not locked transaction is added to the locktable.
     public SuccessFail getWriteLock(Transaction t, String variable){
         SuccessFail s = new SuccessFail(false,-1,t.getName());
         LockTuple t1 = lockTable.get(variable);
