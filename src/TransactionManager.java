@@ -95,12 +95,12 @@ public class TransactionManager {
             int variableNo = Integer.parseInt(variable.substring(1, variable.length()-1));
             if(variableNo%2 == 1){
                 siteNo = (variableNo%10);
-                result = sites[siteNo].readdata(t,variable);
+                result = sites[siteNo].readdata(transaction,variable);
             }
             else{
                 do{
                     siteNo += 1;
-                    result = sites[siteNo].readdata(t,variable);
+                    result = sites[siteNo].readdata(transaction,variable);
                 }while(siteNo < 10 && !result.status && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
             }
             if(!result.status){
@@ -134,7 +134,7 @@ public class TransactionManager {
         int variableNo = Integer.parseInt(variable.substring(1, variable.length()-1));
         if(variableNo%2 == 1){
             siteNo = (variableNo%10);
-            result = sites[siteNo].writedata(t,variable,value);
+            result = sites[siteNo].writedata(transaction,variable,value);
             if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
                 if(!result.status){
                     islocked = true;
@@ -144,7 +144,7 @@ public class TransactionManager {
         }
         else{
             while(siteNo<10){
-                result = sites[siteNo].canGetWriteLock(t, variable);
+                result = sites[siteNo].canGetWriteLock(transaction, variable);
                 if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
                     if(!result.status){
                         islocked = true;
@@ -160,7 +160,7 @@ public class TransactionManager {
             if(!islocked && isactive && siteNo == 10){
                 while(siteNoTemp<10){
                     if(sites[siteNoTemp].getStatus().equals(Site.SiteStatus.ACTIVE)){
-                        result = sites[siteNoTemp].writedata(t, variable, value);
+                        result = sites[siteNoTemp].writedata(transaction, variable, value);
                     }
                     siteNoTemp ++;
                 }
@@ -204,13 +204,13 @@ public class TransactionManager {
         transactions.put(transaction,t);
     }
 
-    private void release_locks(String transaction) {
+    private void release_locks(String transaction,boolean commit) {
         HashMap<String,String> locktable = transactions.get(transaction).getLocktable();
         for(Map.Entry<String,String> lock: locktable.entrySet()) {
             String variable = lock.getKey();
             // String locktype = lock.getValue();
             for(int siteNo = 0; siteNo<10; siteNo++){
-                sites[siteNo].removeLock(variable, transactions.get(transaction));
+                sites[siteNo].removeLock(variable, transaction,commit,time);
             }
             boolean check = true;
             SuccessFail result = new SuccessFail(false, -1, transaction);
@@ -233,13 +233,21 @@ public class TransactionManager {
     }
 
     public void end(String transaction){
+        time++;
         if(transactions.get(transaction).getStatus().equals(Status.ACTIVE)){
             commit(transaction);
         }
     }
 
     public void commit(String transaction){
-        
+        waitsForGraph.remove(transaction);
+        for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
+            mapElement.getValue().remove(transaction);
+        }
+       release_locks(transaction,true);
+        // for(int siteNo = 0; siteNo<10; siteNo++){
+        //     sites[siteNo].commit(transaction);
+        // }
     }
     
     public void abort(String transaction) {
@@ -248,7 +256,7 @@ public class TransactionManager {
         for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
             mapElement.getValue().remove(transaction);
         }
-       release_locks(transaction);
+       release_locks(transaction,false);
     }
 
     private SuccessFail dfs(String u, HashSet<String> visited, HashSet<String> recursion_stack, String youngest_transaction) {

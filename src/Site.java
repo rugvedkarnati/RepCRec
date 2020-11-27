@@ -15,8 +15,8 @@ public class Site {
     // It returns the data if the transaction can get a lock or else it returns false.
     // Two cases where it cannot get a lock- 
     // Either the site is down or else some other transaction holds the lock.
-    public SuccessFail readdata(Transaction t,String variable){
-        SuccessFail s = new SuccessFail(false,-1,t.getName());
+    public SuccessFail readdata(String t,String variable){
+        SuccessFail s = new SuccessFail(false,-1,t);
         if(status == SiteStatus.ACTIVE){
             s = lm.getReadLock(t,variable);
             if(s.status){
@@ -30,13 +30,13 @@ public class Site {
     }
 
     // Checks whether the transaction can get a lock for the given variable.
-    public SuccessFail canGetWriteLock(Transaction t,String variable){
+    public SuccessFail canGetWriteLock(String t,String variable){
         return lm.getWriteLock(t,variable);
     }
 
     // Writes data to the database for this site using the datamanager.
     // Returns False if the site is down.
-    public SuccessFail writedata(Transaction t,String variable,int value){
+    public SuccessFail writedata(String t,String variable,int value){
         SuccessFail s = new SuccessFail(false,-1,t.getName());
         if(status == SiteStatus.ACTIVE){
             s = lm.getWriteLock(t,variable);
@@ -63,7 +63,10 @@ public class Site {
     }
 
     // Removes locks for the given variable held by the given transaction
-    public void removeLock(String variable, Transaction t){
+    public void removeLock(String variable, String t,boolean commit,int time){
+        if(commit){
+            dm.commit(variable, time);
+        }
         lm.removeLock(variable, t);
     }
 
@@ -77,4 +80,8 @@ public class Site {
     // public ArrayList<Integer> getCommitTime(String variable){
     //     return dm.getcommitTime(variable);
     // }
+
+    public void commit(String transaction){
+        lm.getVar(transaction).foreach();
+    }
 }
