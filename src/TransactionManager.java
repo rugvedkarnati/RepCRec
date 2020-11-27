@@ -2,6 +2,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Map;
 
 public class TransactionManager {
     private class Operation{
@@ -168,9 +169,32 @@ public class TransactionManager {
         // abort transaction if all sites down i.e siteNo = 10
         transactions.put(transaction,t);
     }
+
+    private SuccessFail dfs(String u, HashSet<String> visited, HashSet<String> recursion_stack, String youngest_transaction) {
+        visited.add(u);
+        recursion_stack.add(u);
+        if(transactions.get(u).)
+        for(String v : waitsForGraph.get(u)) {
+            if(!visited.contains(v) && dfs(v,visited,recursion_stack)) return true;
+            else if(recursion_stack.contains(v)) return true;
+        }
+        recursion_stack.remove(u);
+        return false;
+    }
+
     public boolean deadlock(){
+        HashSet<String> visited = new HashSet<>();
+        HashSet<String> recursion_stack = new HashSet<>();
+        for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
+            String u = (String)mapElement.getKey(); 
+            if(!visited.contains(u)) {
+                SuccessFail cycle_result = dfs(u, visited,recursion_stack, u);
+            } 
+        } 
+
         return true;
     }
+
     public void fail(int site){
         sites[site-1].changeStatus(Site.SiteStatus.FAIL);
         // all transactions that accessed this site to be aborted
