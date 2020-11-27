@@ -1,4 +1,6 @@
+import java.util.ArrayList;
 import java.util.Map;
+import java.util.List;
 public class Site {
     public enum SiteStatus{ACTIVE,FAIL,RECOVER};
     DataManager dm;
@@ -59,4 +61,20 @@ public class Site {
     public Map<String,Integer> getDB(){
         return dm.getDB();
     }
+
+    // Removes locks for the given variable held by the given transaction
+    public void removeLock(String variable, Transaction t){
+        lm.removeLock(variable, t);
+    }
+
+    public List<Integer> finddata(String variable,int time){
+        return dm.findData(variable, time);
+    }
+
+    public void abortornot(Map<String,Transaction> transactions){
+        lm.abortornot(transactions);
+    }
+    // public ArrayList<Integer> getCommitTime(String variable){
+    //     return dm.getcommitTime(variable);
+    // }
 }

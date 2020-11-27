@@ -1,10 +1,14 @@
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.Map;
+import java.util.List;
 
 public class TransactionManager {
+
+    // Operations class which stores information about the operation
     private class Operation{
         public String opType;
         public int value;
@@ -15,12 +19,14 @@ public class TransactionManager {
             this.transaction = transaction;
         }
     }
+
     private Site[] sites;
     private int time;
     private int variables;
     private HashMap<String,Transaction> transactions;
     private HashMap<String,Set<String>> waitsForGraph;
     private HashMap<String,ArrayList<Operation>> waitOperations;
+    private HashMap<Integer,List<Integer>> SiteFailHistory;
 
     public void initialData(){
         for(int i = 1;i<=20;i++){
@@ -55,9 +61,33 @@ public class TransactionManager {
             return result;
         }
         if(t.isReadOnly()){
-            result.status = true;
-            result.value = t.getVal(variable);
-            result.transaction = transaction;
+            // if(sites[t.getSite()].getStatus().equals(Site.SiteStatus.FAIL))
+            for(int siteNo =0; siteNo<10;siteNo++){
+                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
+                    List<Integer> temp = sites[siteNo].finddata(variable, t.getStartTime());
+                    List<Integer> tempFailList = SiteFailHistory.get(siteNo);
+                    if(tempFailList.get(tempFailList.size()-1) < temp.get(0)){
+                        continue;
+                    }
+                    int low = 0;
+                    int high = temp.size()-1;
+                    int mid;
+                    while(low<high){
+                        mid = (int)(low+high)/2;
+                        if(tempFailList.get(mid) >= time){
+                            high = mid;
+                        }
+                        else{
+                            low = mid+1;
+                        }
+                    }
+                    if(tempFailList.get(low) > time){
+                        result.value = temp.get(1);
+                        result.status = true;
+                        return result;
+                    }
+                }
+            }
             return result;
         }
         else{
@@ -164,12 +194,12 @@ public class TransactionManager {
         time += 1;
         int siteNo = -1;
         Transaction t = new Transaction(transaction, true, Status.ACTIVE, time);
-        do{
-            siteNo += 1;
-        }while(siteNo < 10 && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
-        if(siteNo<10){
-            t.addToSnapshot(sites[siteNo].getDB());
-        }
+        // do{
+        //     siteNo += 1;
+        // }while(siteNo < 10 && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
+        // if(siteNo<10){
+        //     t.addToSnapshot(sites[siteNo].getDB(),siteNo);
+        // }
         // abort transaction if all sites down i.e siteNo = 10
         transactions.put(transaction,t);
     }
@@ -178,23 +208,47 @@ public class TransactionManager {
         HashMap<String,String> locktable = transactions.get(transaction).getLocktable();
         for(Map.Entry<String,String> lock: locktable.entrySet()) {
             String variable = lock.getKey();
-            String locktype = lock.getValue();
-
-            Operation nextOperation = waitOperations.get(variable).remove(0);
-            if(waitOperations.get(variable).size() == 0) waitOperations.remove(variable);
-            
-            if(nextOperation.opType == "R") readRequest(nextOperation.transaction, variable);
-            else if(nextOperation.opType == "W") writeRequest(nextOperation.transaction, variable, nextOperation.value);
+            // String locktype = lock.getValue();
+            for(int siteNo = 0; siteNo<10; siteNo++){
+                sites[siteNo].removeLock(variable, transactions.get(transaction));
+            }
+            boolean check = true;
+            SuccessFail result = new SuccessFail(false, -1, transaction);
+            while(check){
+                if(waitOperations.get(variable).isEmpty()){
+                    waitOperations.remove(variable);
+                    break;
+                }
+                Operation nextOperation = waitOperations.get(variable).remove(0);
+                
+                if(nextOperation.opType == "R"){
+                    result = readRequest(nextOperation.transaction, variable);
+                }
+                else if(nextOperation.opType == "W"){
+                    result = writeRequest(nextOperation.transaction, variable, nextOperation.value);
+                }
+                check = result.status;
+            }
         }
     }
 
+    public void end(String transaction){
+        if(transactions.get(transaction).getStatus().equals(Status.ACTIVE)){
+            commit(transaction);
+        }
+    }
+
+    public void commit(String transaction){
+        
+    }
+    
     public void abort(String transaction) {
+        transactions.get(transaction).setStatus(Status.ABORTED);
         waitsForGraph.remove(transaction);
         for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
             mapElement.getValue().remove(transaction);
         }
-       
-
+       release_locks(transaction);
     }
 
     private SuccessFail dfs(String u, HashSet<String> visited, HashSet<String> recursion_stack, String youngest_transaction) {
@@ -225,11 +279,21 @@ public class TransactionManager {
         return new SuccessFail(false, -1, "");
     }
 
+
     public void fail(int site){
+        time ++;
+        SiteFailHistory.get(site).add(time);
+        sites[site].abortornot(transactions);
+        transactions.forEach((K,T)->{
+            if(T.getStatus().equals(Status.TO_BE_ABORTED)){
+                abort(T.getName());
+            }
+        });
         sites[site-1].changeStatus(Site.SiteStatus.FAIL);
         // all transactions that accessed this site to be aborted
     }
     public void recover(int site){
+        time ++;
         sites[site-1].changeStatus(Site.SiteStatus.RECOVER);
     }
     public int getVar(){

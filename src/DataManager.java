@@ -1,4 +1,7 @@
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class DataManager {
@@ -6,10 +9,12 @@ public class DataManager {
     // This class is used to store the tuple of commitData and currentData.
     private class Data{ 
         private int commitData; 
-        private int currentData; 
+        private int currentData;
+        private ArrayList<List<Integer>> commitInfo;
         public Data(int commitData, int currentData) { 
           this.commitData = commitData; 
-          this.currentData = currentData; 
+          this.currentData = currentData;
+          commitInfo = new ArrayList<>();
         }
     }
 
@@ -43,9 +48,18 @@ public class DataManager {
     }
 
     // Commit puts the current value of the given variable into commitData for that given variable
-    public boolean commit(String variable){
+    public boolean commit(String variable,int commitTime){
         int val = db.get(variable).currentData;
         db.get(variable).commitData = val;
+        if(db.containsKey(variable)){
+            List<Integer> tempList = new ArrayList<>();
+            tempList.add(commitTime);
+            tempList.add(val);
+            db.get(variable).commitInfo.add(tempList);
+        }
+        else{
+            db.get(variable).commitInfo = new ArrayList<>();
+        }
         return true;
     }
 
@@ -57,4 +71,26 @@ public class DataManager {
         );
         return tempDB;
     }
+    public List<Integer> findData(String variable,int time){
+        ArrayList<List<Integer>> temp = db.get(variable).commitInfo;
+        if(temp.get(temp.size()-1).get(0) < time){
+            return temp.get(temp.size()-1);
+        }
+        int low = 0;
+        int high = temp.size()-1;
+        int mid;
+        while(low<high){
+            mid = (int)(low+high)/2;
+            if(temp.get(mid).get(0) >= time){
+                high = mid;
+            }
+            else{
+                low = mid+1;
+            }
+        }
+        return temp.get(low);
+    }
+    // public ArrayList<Integer> getcommitTime(String variable){
+    //     return db.get(variable).commitInfo;
+    // }
 }

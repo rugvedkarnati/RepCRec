@@ -61,4 +61,19 @@ public class LockManager {
         }
         return s;
     }
+
+    public void removeLock(String variable,Transaction t){
+        lockTable.get(variable).transactionList.remove(t);
+        if(lockTable.get(variable).transactionList.isEmpty()){
+            lockTable.remove(variable);
+        }
+    }
+
+    public void abortornot(Map<String,Transaction> transactions){
+        lockTable.forEach((K,V) -> {
+            V.transactionList.forEach((T) ->{
+                transactions.get(T.getName()).setStatus(Status.TO_BE_ABORTED);
+            });
+        });
+    }
 }

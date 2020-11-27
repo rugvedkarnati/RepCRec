@@ -10,7 +10,8 @@ public class Transaction {
     private HashMap<String,String> locktable;
 
     // Used for ReadOnly Operations. Contains a snapshot of the database.
-    private HashMap<String,Integer> snapshot;
+    // private HashMap<String,Integer> snapshot;
+    // private int snapshotSite;
 
     public Transaction(String name,boolean isRO,Status status,int startTime){
         this.name = name;
@@ -43,13 +44,26 @@ public class Transaction {
         locktable.put(variable, type);
     }
 
+    public void setStatus(Status status){
+        tStatus = status;
+    }
+
+    public Status getStatus(){
+        return tStatus;
+    }
     // Adds the data from the database to the snapshot
-    public void addToSnapshot(Map<String,Integer> db){
+    public void addToSnapshot(Map<String,Integer> db,int site){
         snapshot = new HashMap<String,Integer>(db);
+        snapshotSite = site;
     }
 
     // Gets the value for the variable for a read only transaction
     public int getVal(String variable){
         return snapshot.get(variable);
+    }
+
+    // Returns the SiteNo from which the snapshot was taken.
+    public int getSite(){
+        return snapshotSite;
     }
 }
