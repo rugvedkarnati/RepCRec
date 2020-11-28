@@ -176,7 +176,7 @@ public class TransactionManager {
 
             siteNo = 0;
             while(!islocked && isactive && siteNo<10){
-                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
+                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE) || sites[siteNo].getStatus().equals(Site.SiteStatus.RECOVER)){
                     result = sites[siteNo].writedata(transaction, variable, value);
                 }
                 siteNo++;
