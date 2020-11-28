@@ -232,8 +232,7 @@ public class TransactionManager {
             Result result = new Result(false, -1, transaction);
             while(lockWaitOperations.containsKey(variable) && check){
                 
-                Operation nextOperation = lockWaitOperations.get(variable).remove(0);
-                if(lockWaitOperations.get(variable).isEmpty()) lockWaitOperations.remove(variable);
+                Operation nextOperation = lockWaitOperations.get(variable).get(0);
 
                 if(nextOperation.opType == "R"){
                     result = readRequest(nextOperation.transaction, variable);
@@ -242,6 +241,10 @@ public class TransactionManager {
                     System.out.println("NEXT TRANSACTION:"+nextOperation.transaction);
                     result = writeRequest(nextOperation.transaction, variable, nextOperation.value);
                 }
+
+                if(result.status) lockWaitOperations.get(variable).remove(0);
+                if(lockWaitOperations.get(variable).isEmpty()) lockWaitOperations.remove(variable);
+
                 check = result.status;
             }
         }
