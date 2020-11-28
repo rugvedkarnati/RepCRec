@@ -6,6 +6,7 @@ public class Site {
     LockManager lm;
     private int siteNo;
     public SiteStatus status;
+    
     public Site(int siteNo){
         dm = new DataManager();
         lm = new LockManager();
@@ -20,7 +21,8 @@ public class Site {
     // Either the site is down or else some other transaction holds the lock.
     public SuccessFail readdata(String t,String variable){
         SuccessFail s = new SuccessFail(false,-1,"");
-        if(status == SiteStatus.ACTIVE){
+        int variableNo = Integer.parseInt(variable.substring(1,variable.length()));
+        if(status == SiteStatus.ACTIVE || (siteNo == 1+variableNo%10 && status == SiteStatus.RECOVER)){
             s = lm.getReadLock(t,variable);
             if(s.status){
                 s.value = dm.readCommitData(variable);
@@ -42,6 +44,7 @@ public class Site {
     public SuccessFail writedata(String t,String variable,int value){
         SuccessFail s = new SuccessFail(false,-1,"");
         if(!status.equals(SiteStatus.FAIL)){
+            status = SiteStatus.ACTIVE;
             s = lm.getWriteLock(t,variable);
             if(s.status){
                 s.status = dm.writeData(variable,value);

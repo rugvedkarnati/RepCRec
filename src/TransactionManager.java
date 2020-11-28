@@ -7,10 +7,13 @@ public class TransactionManager {
         public String opType;
         public int value;
         public String transaction;
-        public Operation(String opType,int value,String transaction){
+        public String variable;
+
+        public Operation(String opType,int value,String transaction, String variable){
             this.opType = opType;
             this.value = value;
             this.transaction = transaction;
+            this.variable = variable;
         }
     }
 
@@ -19,7 +22,8 @@ public class TransactionManager {
     private int variables;
     private HashMap<String,Transaction> transactions;
     private HashMap<String,Set<String>> waitsForGraph;
-    private HashMap<String,ArrayList<Operation>> waitOperations;
+    private HashMap<String,ArrayList<Operation>> lockWaitOperations;
+    private ArrayList<Operation> failWaitOperations;
     private HashMap<Integer,List<Integer>> SiteFailHistory;
 
     TransactionManager(int siteCount,int variables){
@@ -30,7 +34,8 @@ public class TransactionManager {
         this.variables = variables;
         transactions = new HashMap<>();
         waitsForGraph = new HashMap<>();
-        waitOperations = new HashMap<>();
+        lockWaitOperations = new HashMap<>();
+        failWaitOperations = new ArrayList<>();
         SiteFailHistory = new HashMap<>();
         time = 0;
     }
@@ -71,10 +76,9 @@ public class TransactionManager {
 
     public SuccessFail readRequest(String transaction, String variable){
         Transaction t = transactions.get(transaction);
-        // t.addOperation("Read",variable);
         SuccessFail result = new SuccessFail(false,0,transaction);
-        if(waitOperations.get(variable) != null){
-            waitOperations.get(variable).add(new Operation("R", -1,transaction));
+        if(lockWaitOperations.get(variable) != null){
+            lockWaitOperations.get(variable).add(new Operation("R", -1,transaction,variable));
             waitsForGraph.get(transaction).add(result.transaction);
             return result;
         }
@@ -91,6 +95,7 @@ public class TransactionManager {
                     }
                 }
             }
+            if(!result.status) failWaitOperations.add(new Operation("R",-1,transaction, variable));
             return result;
         }
         else{
@@ -106,7 +111,9 @@ public class TransactionManager {
                     result = sites[siteNo].readdata(transaction,variable);
                 }while(siteNo < 10 && !result.status && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
             }
-            if(!result.status){
+
+            if(result.status) transactions.get(transaction).addToLocktable(variable, "R");
+            else {
                 if(siteNo < 10 && sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
                     if(waitsForGraph.get(transaction) == null)
                         waitsForGraph.put(transaction,new HashSet<>());
@@ -116,25 +123,26 @@ public class TransactionManager {
                         abort(cycle_result.transaction);
                     }
                 }
-                if(waitOperations.get(variable) == null)
-                    waitOperations.put(variable,new ArrayList<>());
-                waitOperations.get(variable).add(new Operation("R",-1,transaction));
+
+                if(siteNo == 10 || sites[siteNo].getStatus().equals(Site.SiteStatus.FAIL)) {
+                    failWaitOperations.add(new Operation("R",-1,transaction, variable));    
+                }
+                else{
+                    if(lockWaitOperations.get(variable) == null)
+                        lockWaitOperations.put(variable,new ArrayList<>());
+                    lockWaitOperations.get(variable).add(new Operation("R",-1,transaction, variable));
+                }
             }
-            if(result.status) transactions.get(transaction).addToLocktable(variable, "R");
+
             return result;
         }
     }
 
     public SuccessFail writeRequest(String transaction, String variable, int value){
         Transaction t = transactions.get(transaction);
-        // t.addOperation("Write",variable);
         SuccessFail result = new SuccessFail(false,value,transaction);
-        // for(Operation oper:waitOperations.getOrDefault(variable,new ArrayList<>())){
-        //     System.out.println("Variable:"+variable+", operation: "+oper.transaction+oper.opType+Integer.toString(oper.value));
-        // }
-        if(waitOperations.get(variable) != null){
-            // System.out.println("Variable:"+variable);
-            waitOperations.get(variable).add(new Operation("W", value,transaction));
+        if(lockWaitOperations.get(variable) != null){
+            lockWaitOperations.get(variable).add(new Operation("W", value,transaction, variable));
             waitsForGraph.get(transaction).add(result.transaction);
             return result;
         }
@@ -147,58 +155,54 @@ public class TransactionManager {
             siteNo = (variableNo%10);
             result = sites[siteNo].writedata(transaction,variable,value);
             if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
+                isactive = true;
                 if(!result.status){
                     islocked = true;
                 }
-                isactive = true;
             }
         }
         else{
             while(siteNo<10){
                 result = sites[siteNo].canGetWriteLock(transaction, variable);
-                // System.out.println("Write Lock"+Boolean.toString(result.status)+", Transacation:"+result.transaction);
-                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
+                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE) || sites[siteNo].getStatus().equals(Site.SiteStatus.RECOVER)){
+                    isactive = true;
                     if(!result.status){
                         islocked = true;
                         break;
                     }
-                    isactive = true;
                 }
-                siteNo ++;
-            }
-            // if(siteNo != 10) return result;
-
-            int siteNoTemp = 0;
-            if(!islocked && isactive && siteNo == 10){
-                while(siteNoTemp<10){
-                    if(sites[siteNoTemp].getStatus().equals(Site.SiteStatus.ACTIVE)){
-                        result = sites[siteNoTemp].writedata(transaction, variable, value);
-                    }
-                    siteNoTemp ++;
-                }
+                siteNo++;
             }
 
-        }
-        if(!result.status){
-            result.status = false;
-            if(waitOperations.get(variable) == null)
-                waitOperations.put(variable,new ArrayList<>());
-            waitOperations.get(variable).add(new Operation("W",value,transaction));
+            siteNo = 0;
+            while(!islocked && isactive && siteNo<10){
+                if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
+                    result = sites[siteNo].writedata(transaction, variable, value);
+                }
+                siteNo++;
+            }
         }
 
-        if(islocked){
+        if(result.status) transactions.get(transaction).addToLocktable(variable, "W");
+        else if(!isactive) failWaitOperations.add(new Operation("W",value,transaction, variable));
+        else if(islocked) {
+
+            //Add to waitsforgraph and check/remove deadlock
             result.status = false;
             if(waitsForGraph.get(transaction) == null)
                 waitsForGraph.put(transaction,new HashSet<>());
             waitsForGraph.get(transaction).add(result.transaction);
             SuccessFail cycle_result = check_deadlock();
-            // System.out.println(cycle_result.status);
             if(cycle_result.status){
                 abort(cycle_result.transaction);
             }
 
+            //Add to lockWait table
+            if(lockWaitOperations.get(variable) == null)
+                lockWaitOperations.put(variable,new ArrayList<>());
+            lockWaitOperations.get(variable).add(new Operation("W",value,transaction, variable));
         }
-        if(result.status) transactions.get(transaction).addToLocktable(variable, "W");
+
         return result;
     }
 
@@ -209,15 +213,7 @@ public class TransactionManager {
     }
     public void beginROTransaction(String transaction){
         time += 1;
-        int siteNo = -1;
         Transaction t = new Transaction(transaction, true, Status.ACTIVE, time);
-        // do{
-        //     siteNo += 1;
-        // }while(siteNo < 10 && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
-        // if(siteNo<10){
-        //     t.addToSnapshot(sites[siteNo].getDB(),siteNo);
-        // }
-        // abort transaction if all sites down i.e siteNo = 10
         transactions.put(transaction,t);
     }
 
@@ -238,10 +234,10 @@ public class TransactionManager {
             
             boolean check = true;
             SuccessFail result = new SuccessFail(false, -1, transaction);
-            while(waitOperations.containsKey(variable) && check){
+            while(lockWaitOperations.containsKey(variable) && check){
                 
-                Operation nextOperation = waitOperations.get(variable).remove(0);
-                if(waitOperations.get(variable).isEmpty()) waitOperations.remove(variable);
+                Operation nextOperation = lockWaitOperations.get(variable).remove(0);
+                if(lockWaitOperations.get(variable).isEmpty()) lockWaitOperations.remove(variable);
 
                 if(nextOperation.opType == "R"){
                     result = readRequest(nextOperation.transaction, variable);
@@ -281,13 +277,12 @@ public class TransactionManager {
             mapElement.getValue().remove(transaction);
         }
 
-        //Remove transaction from waitoperations
-        for(Map.Entry<String,ArrayList<Operation>> mapElement : waitOperations.entrySet()) { 
+        //Remove transaction from lockWaitOperations
+        for(Map.Entry<String,ArrayList<Operation>> mapElement : lockWaitOperations.entrySet()) { 
             mapElement.getValue().removeIf(operation -> operation.transaction.equals(transaction));
         }
-        waitOperations.entrySet().removeIf(entry -> waitOperations.get(entry.getKey()).isEmpty()); 
+        lockWaitOperations.entrySet().removeIf(entry -> lockWaitOperations.get(entry.getKey()).isEmpty()); 
   
-
        release_locks(transaction,false);
     }
 
@@ -320,24 +315,31 @@ public class TransactionManager {
     }
 
     public void fail(int site){
-        time ++;
+        time++;
         if(!SiteFailHistory.containsKey(site)){
             SiteFailHistory.put(site, new ArrayList<>());
         }
         SiteFailHistory.get(site).add(time);
         sites[site].abortornot(transactions);
-        // transactions.forEach((K,T)->{
-        //     if(T.getStatus().equals(Status.TO_BE_ABORTED)){
-        //         abort(T.getName());
-        //     }
-        // });
         sites[site-1].changeStatus(Site.SiteStatus.FAIL);
-        // all transactions that accessed this site to be aborted
     }
 
     public void recover(int site){
-        time ++;
+        time++;
         sites[site-1].changeStatus(Site.SiteStatus.RECOVER);
+        
+        Iterator<Operation> itr = failWaitOperations.iterator(); 
+        while (itr.hasNext()) { 
+            Operation operation = itr.next(); 
+            int variableNo = Integer.parseInt(operation.variable.substring(1,operation.variable.length()));
+            if (variableNo%2 == 0 || variableNo%10 + 1 == site) { 
+                if(operation.opType == "R") 
+                    readRequest(operation.transaction, operation.variable);
+                else if(operation.opType == "W") 
+                    writeRequest(operation.transaction, operation.variable, operation.value);
+                itr.remove(); 
+            } 
+        }
     }
 
     public void dump(){

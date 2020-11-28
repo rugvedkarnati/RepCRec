@@ -6,11 +6,11 @@ public class DataManager {
     private class Data{ 
         private int commitData; 
         private int currentData;
-        private ArrayList<List<Integer>> commitInfo;
-        public Data(int commitData, int currentData, ArrayList<List<Integer>> commitInfo) { 
+        private ArrayList<List<Integer>> commitHistory;
+        public Data(int commitData, int currentData, ArrayList<List<Integer>> commitHistory) { 
           this.commitData = commitData; 
           this.currentData = currentData;
-          this.commitInfo= commitInfo;
+          this.commitHistory= commitHistory;
         }
     }
 
@@ -38,7 +38,7 @@ public class DataManager {
     public boolean writeData(String variable,int value){
         try{
             int cData = db.get(variable).commitData;
-            ArrayList<List<Integer>> commitHistory = db.get(variable).commitInfo;
+            ArrayList<List<Integer>> commitHistory = db.get(variable).commitHistory;
             db.put(variable,new Data(cData,value,commitHistory));
             return true;
         }
@@ -55,7 +55,7 @@ public class DataManager {
         List<Integer> tempList = new ArrayList<>();
         tempList.add(commitTime);
         tempList.add(val);
-        db.get(variable).commitInfo.add(tempList);
+        db.get(variable).commitHistory.add(tempList);
         return true;
     }
 
@@ -68,7 +68,7 @@ public class DataManager {
         return tempDB;
     }
     public List<Integer> findData(String variable,int time){
-        ArrayList<List<Integer>> time_data_list = db.get(variable).commitInfo;
+        ArrayList<List<Integer>> time_data_list = db.get(variable).commitHistory;
         System.out.println("------------");
         System.out.println(time_data_list);
         System.out.println("------------");
