@@ -44,28 +44,29 @@ public class TransactionManager {
         Result result = new Result(false,0,t.getName());
         if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
             List<Integer> time_data = sites[siteNo].finddata(variable, t.getStartTime());
-            if(!SiteFailHistory.containsKey(siteNo)){
+            List<Integer> tempFailList = SiteFailHistory.get(siteNo);
+
+            if(!SiteFailHistory.containsKey(siteNo) || tempFailList.get(tempFailList.size()-1) < time_data.get(0)){
                 result.value = time_data.get(1);
                 result.status = true;
                 return result;
             }
-            List<Integer> tempFailList = SiteFailHistory.get(siteNo);
-            if(tempFailList.get(tempFailList.size()-1) < time_data.get(0)){
-                return result;
-            }
+
             int low = 0;
             int high = time_data.size()-1;
             int mid;
             while(low<high){
                 mid = (int)(low+high)/2;
-                if(tempFailList.get(mid) >= time){
+
+                if(tempFailList.get(mid) >= t.getStartTime()){
                     high = mid;
                 }
                 else{
                     low = mid+1;
                 }
             }
-            if(tempFailList.get(low) > time){
+
+            if(tempFailList.get(low-1) < time_data.get(0)){
                 result.value = time_data.get(1);
                 result.status = true;
                 return result;
@@ -77,11 +78,7 @@ public class TransactionManager {
     public Result readRequest(String transaction, String variable){
         Transaction t = transactions.get(transaction);
         Result result = new Result(false,0,transaction);
-        if(lockWaitOperations.get(variable) != null){
-            lockWaitOperations.get(variable).add(new Operation("R", -1,transaction,variable));
-            waitsForGraph.get(transaction).add(result.transaction);
-            return result;
-        }
+        
         if(t.isReadOnly()){
             int variableNo = Integer.parseInt(variable.substring(1,variable.length()));
             if(variableNo%2 == 1){
@@ -112,7 +109,10 @@ public class TransactionManager {
                 }while(siteNo < 10 && !result.status && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
             }
 
-            if(result.status) transactions.get(transaction).addToLocktable(variable, "R");
+            if(result.status) {
+                System.out.println(variable+": "+Integer.toString(result.value));
+                transactions.get(transaction).addToLocktable(variable, "R");
+            }
             else {
                 if(siteNo < 10 && sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
                     if(waitsForGraph.get(transaction) == null)
@@ -141,11 +141,7 @@ public class TransactionManager {
     public Result writeRequest(String transaction, String variable, int value){
         Transaction t = transactions.get(transaction);
         Result result = new Result(false,value,transaction);
-        if(lockWaitOperations.get(variable) != null){
-            lockWaitOperations.get(variable).add(new Operation("W", value,transaction, variable));
-            waitsForGraph.get(transaction).add(result.transaction);
-            return result;
-        }
+       
         int siteNo = 0;
         boolean islocked = false;
         boolean isactive = false;
@@ -243,6 +239,7 @@ public class TransactionManager {
                     result = readRequest(nextOperation.transaction, variable);
                 }
                 else if(nextOperation.opType == "W"){
+                    System.out.println("NEXT TRANSACTION:"+nextOperation.transaction);
                     result = writeRequest(nextOperation.transaction, variable, nextOperation.value);
                 }
                 check = result.status;
@@ -252,11 +249,18 @@ public class TransactionManager {
 
     public void endTransaction(String transaction){
         time++;
+        lockWaitOperations.forEach((k,v)->{
+            v.forEach((oper)->{
+                System.out.println(oper.transaction+" "+oper.opType);
+            });
+        });
         if(transactions.get(transaction).getStatus().equals(Status.ACTIVE)){
             commit(transaction);
+            System.out.println("Commit " + transaction);
         }
         else if(transactions.get(transaction).getStatus().equals(Status.TO_BE_ABORTED)){
             abort(transaction);
+            System.out.println("Abort " + transaction);
         }
     }
 
@@ -265,7 +269,14 @@ public class TransactionManager {
         for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
             mapElement.getValue().remove(transaction);
         }
+         //Remove transaction from lockWaitOperations
+        for(Map.Entry<String,ArrayList<Operation>> mapElement : lockWaitOperations.entrySet()) { 
+            mapElement.getValue().removeIf(operation -> operation.transaction.equals(transaction));
+        }
+        lockWaitOperations.entrySet().removeIf(entry -> lockWaitOperations.get(entry.getKey()).isEmpty()); 
+
        release_locks(transaction,true);
+
     }
     
     public void abort(String transaction) {

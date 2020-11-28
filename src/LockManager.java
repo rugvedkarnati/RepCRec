@@ -31,7 +31,7 @@ public class LockManager {
             lockTable.put(variable, newlocktuple);
             result.status = true;
         }
-        else if(locktuple.lockType.compareTo("R") == 0 || locktuple.lockType.compareTo("W") == 0){
+        else if(locktuple.lockType.compareTo("R") == 0 || (locktuple.lockType.compareTo("W") == 0 && locktuple.transactionList.contains(transaction))){
             lockTable.get(variable).transactionList.add(transaction);
             result.status = true;
         }
@@ -65,6 +65,7 @@ public class LockManager {
     }
 
     public void removeLock(String variable,String t){
+        if(!lockTable.containsKey(variable)) return;
         lockTable.get(variable).transactionList.remove(t);
         if(lockTable.get(variable).transactionList.isEmpty()){
             lockTable.remove(variable);

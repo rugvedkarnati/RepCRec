@@ -14,6 +14,7 @@ public class Main {
         }
         while(sc.hasNextLine()){
             String command = sc.nextLine().strip();
+            if(command == "") continue;
             System.out.println(command);
             String[] splitCommand = command.split("\\(");
             String s = "";
@@ -43,7 +44,6 @@ public class Main {
                     result = t.readRequest(s1[0],s1[1]);
                     if(result.status){
                         System.out.println("SUCCESS");
-                        System.out.println(s1[1]+": "+Integer.toString(result.value));
                     }
                     else if(result.transaction.equals("")){
                         System.out.println("FAIL");
@@ -56,6 +56,7 @@ public class Main {
                     String[] s2 = s.substring(0,s.length()-1).split(",");
                     s2[0] = s2[0].strip();
                     s2[1] = s2[1].strip();
+                    s2[2] = s2[2].strip();
                     result = t.writeRequest(s2[0],s2[1],Integer.parseInt(s2[2]));
                     if(result.status){
                         System.out.println("SUCCESS");

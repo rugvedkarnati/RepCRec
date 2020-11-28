@@ -69,7 +69,7 @@ public class DataManager {
     }
     public List<Integer> findData(String variable,int time){
         ArrayList<List<Integer>> time_data_list = db.get(variable).commitHistory;
-        if(time_data_list.get(time_data_list.size()-1).get(0) < time){
+        if(time_data_list.get(time_data_list.size()-1).get(0) <= time){
             return time_data_list.get(time_data_list.size()-1);
         }
         int low = 0;
@@ -84,6 +84,7 @@ public class DataManager {
                 low = mid+1;
             }
         }
-        return time_data_list.get(low);
+        if(time_data_list.get(low).get(0) == time) return time_data_list.get(low);
+        else return time_data_list.get(low-1);
     }
 }
