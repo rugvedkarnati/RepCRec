@@ -73,8 +73,12 @@ public class LockManager {
     }
 
     public void abortornot(Map<String,Transaction> transactions){
+        System.out.println("hello");
+        System.out.println(lockTable);
         lockTable.forEach((K,V) -> {
+            System.out.println(K+V);
             V.transactionList.forEach((T) ->{
+                System.out.println(transactions.get(T));
                 transactions.get(T).setStatus(Status.TO_BE_ABORTED);
             });
         });

@@ -114,6 +114,15 @@ public class TransactionManager {
                 transactions.get(transaction).addToLocktable(variable, "R");
             }
             else {
+                if(siteNo == 10 || sites[siteNo].getStatus().equals(Site.SiteStatus.FAIL)) {
+                    failWaitOperations.add(new Operation("R",-1,transaction, variable));    
+                }
+                else{
+                    if(lockWaitOperations.get(variable) == null)
+                        lockWaitOperations.put(variable,new ArrayList<>());
+                    lockWaitOperations.get(variable).add(new Operation("R",-1,transaction, variable));
+                }
+                
                 if(siteNo < 10 && sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
                     if(waitsForGraph.get(transaction) == null)
                         waitsForGraph.put(transaction,new HashSet<>());
@@ -122,15 +131,6 @@ public class TransactionManager {
                     if(cycle_result.status){
                         abort_commit(cycle_result.transaction,true);
                     }
-                }
-
-                if(siteNo == 10 || sites[siteNo].getStatus().equals(Site.SiteStatus.FAIL)) {
-                    failWaitOperations.add(new Operation("R",-1,transaction, variable));    
-                }
-                else{
-                    if(lockWaitOperations.get(variable) == null)
-                        lockWaitOperations.put(variable,new ArrayList<>());
-                    lockWaitOperations.get(variable).add(new Operation("R",-1,transaction, variable));
                 }
             }
 
@@ -183,6 +183,11 @@ public class TransactionManager {
         else if(!isactive) failWaitOperations.add(new Operation("W",value,transaction, variable));
         else if(islocked) {
 
+            //Add to lockWait table
+            if(lockWaitOperations.get(variable) == null)
+            lockWaitOperations.put(variable,new ArrayList<>());
+            lockWaitOperations.get(variable).add(new Operation("W",value,transaction, variable));
+
             //Add to waitsforgraph and check/remove deadlock
             result.status = false;
             if(waitsForGraph.get(transaction) == null)
@@ -193,10 +198,6 @@ public class TransactionManager {
                 abort_commit(cycle_result.transaction,true);
             }
 
-            //Add to lockWait table
-            if(lockWaitOperations.get(variable) == null)
-                lockWaitOperations.put(variable,new ArrayList<>());
-            lockWaitOperations.get(variable).add(new Operation("W",value,transaction, variable));
         }
 
         return result;
@@ -248,16 +249,16 @@ public class TransactionManager {
                 check = result.status;
             }
         }
+        // System.out.println("Release Locks");
+        // lockWaitOperations.forEach((k,v)->{
+        //     v.forEach((oper)->{
+        //         System.out.println(oper.transaction+" "+oper.opType);
+        //     });
+        // });
     }
 
     public void endTransaction(String transaction){
         time++;
-        lockWaitOperations.forEach((k,v)->{
-            v.forEach((oper)->{
-                System.out.println(oper.transaction+" "+oper.opType);
-            });
-        });
-
         List<Operation> waitingOperations = new ArrayList<>();
         lockWaitOperations.forEach((variable,operations) -> {
             operations.forEach((operation) -> {
@@ -266,8 +267,6 @@ public class TransactionManager {
                 }
             });
         });
-
-        // Result result = new Result(false, -1, "");
 
         waitingOperations.forEach((operation) ->{
             Result result;
@@ -313,7 +312,7 @@ public class TransactionManager {
             mapElement.getValue().removeIf(operation -> operation.transaction.equals(transaction));
         }
         lockWaitOperations.entrySet().removeIf(entry -> lockWaitOperations.get(entry.getKey()).isEmpty()); 
-  
+
        release_locks(transaction,!abort);
 
     }
@@ -352,6 +351,7 @@ public class TransactionManager {
             SiteFailHistory.put(site, new ArrayList<>());
         }
         SiteFailHistory.get(site).add(time);
+        System.out.println("-------------"+transactions);
         sites[site].abortornot(transactions);
         sites[site-1].changeStatus(Site.SiteStatus.FAIL);
     }
