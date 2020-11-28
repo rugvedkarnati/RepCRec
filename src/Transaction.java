@@ -1,12 +1,12 @@
 import java.util.*;
 
 public class Transaction {
-    private String name;
-    private boolean isRO;
+    private final String name;
+    private final boolean isRO;
     private Status tStatus;
-    private int startTime;
+    private final int startTime;
     private HashMap<String,String> operations;
-    private HashMap<String,String> locktable;
+    private final HashMap<String,String> locktable;
 
     // Used for ReadOnly Operations. Contains a snapshot of the database.
     // private HashMap<String,Integer> snapshot;

@@ -1,10 +1,11 @@
 import java.util.*;
 
 public class Site {
-    public enum SiteStatus{ACTIVE,FAIL,RECOVER};
+    public enum SiteStatus{ACTIVE,FAIL,RECOVER}
+
     DataManager dm;
     LockManager lm;
-    private int siteNo;
+    private final int siteNo;
     public SiteStatus status;
 
     public Site(int siteNo){
@@ -21,7 +22,7 @@ public class Site {
     // Either the site is down or else some other transaction holds the lock.
     public Result readdata(String t,String variable){
         Result s = new Result(false,-1,"");
-        int variableNo = Integer.parseInt(variable.substring(1,variable.length()));
+        int variableNo = Integer.parseInt(variable.substring(1));
         if(status == SiteStatus.ACTIVE || (siteNo == 1+variableNo%10 && status == SiteStatus.RECOVER)){
             s = lm.getReadLock(t,variable);
             if(s.status){

@@ -5,8 +5,8 @@ public class DataManager {
     // This class is used to store the tuple of commitData and currentData.
     private class Data{ 
         private int commitData; 
-        private int currentData;
-        private ArrayList<List<Integer>> commitHistory;
+        private final int currentData;
+        private final ArrayList<List<Integer>> commitHistory;
         public Data(int commitData, int currentData, ArrayList<List<Integer>> commitHistory) { 
           this.commitData = commitData; 
           this.currentData = currentData;
@@ -76,7 +76,7 @@ public class DataManager {
         int high = time_data_list.size()-1;
         int mid;
         while(low<high){
-            mid = (int)(low+high)/2;
+            mid = (low+high) /2;
             if(time_data_list.get(mid).get(0) >= time){
                 high = mid;
             }

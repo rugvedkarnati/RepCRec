@@ -17,14 +17,14 @@ public class TransactionManager {
         }
     }
 
-    private Site[] sites;
+    private final Site[] sites;
     private int time;
-    private int variables;
-    private HashMap<String,Transaction> transactions;
-    private HashMap<String,Set<String>> waitsForGraph;
-    private HashMap<String,ArrayList<Operation>> lockWaitOperations;
-    private ArrayList<Operation> failWaitOperations;
-    private HashMap<Integer,List<Integer>> SiteFailHistory;
+    private final int variables;
+    private final HashMap<String,Transaction> transactions;
+    private final HashMap<String,Set<String>> waitsForGraph;
+    private final HashMap<String,ArrayList<Operation>> lockWaitOperations;
+    private final ArrayList<Operation> failWaitOperations;
+    private final HashMap<Integer,List<Integer>> SiteFailHistory;
 
     TransactionManager(int siteCount,int variables){
         this.sites = new Site[siteCount];
@@ -56,7 +56,7 @@ public class TransactionManager {
             int high = time_data.size()-1;
             int mid;
             while(low<high){
-                mid = (int)(low+high)/2;
+                mid = (low+high) /2;
 
                 if(tempFailList.get(mid) >= t.getStartTime()){
                     high = mid;
@@ -80,7 +80,7 @@ public class TransactionManager {
         Result result = new Result(false,0,transaction);
         
         if(t.isReadOnly()){
-            int variableNo = Integer.parseInt(variable.substring(1,variable.length()));
+            int variableNo = Integer.parseInt(variable.substring(1));
             if(variableNo%2 == 1){
                 result = snapshotResult(t, variable, variableNo%10);
             }
@@ -96,34 +96,35 @@ public class TransactionManager {
             return result;
         }
         else{
+            boolean isactive = false;
             int siteNo = -1;
-            int variableNo = Integer.parseInt(variable.substring(1, variable.length()));
+            int variableNo = Integer.parseInt(variable.substring(1));
             if(variableNo%2 == 1){
                 siteNo = (variableNo%10);
                 result = sites[siteNo].readdata(transaction,variable);
+                if(!sites[siteNo].getStatus().equals(Site.SiteStatus.FAIL)) isactive = true;
             }
             else{
                 do{
                     siteNo += 1;
                     result = sites[siteNo].readdata(transaction,variable);
-                }while(siteNo < 10 && !result.status && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
+                    if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)) isactive = true;
+                }while(siteNo < 9 && !result.status && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
             }
 
             if(result.status) {
-                System.out.println(variable+": "+Integer.toString(result.value));
+                System.out.println(variable+": "+ result.value);
                 transactions.get(transaction).addToLocktable(variable, "R");
             }
             else {
-                if(siteNo == 10 || sites[siteNo].getStatus().equals(Site.SiteStatus.FAIL)) {
+                if(!isactive) {
                     failWaitOperations.add(new Operation("R",-1,transaction, variable));    
                 }
                 else{
                     if(lockWaitOperations.get(variable) == null)
                         lockWaitOperations.put(variable,new ArrayList<>());
                     lockWaitOperations.get(variable).add(new Operation("R",-1,transaction, variable));
-                }
-                
-                if(siteNo < 10 && sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
+
                     if(waitsForGraph.get(transaction) == null)
                         waitsForGraph.put(transaction,new HashSet<>());
                     waitsForGraph.get(transaction).add(result.transaction);
@@ -146,7 +147,7 @@ public class TransactionManager {
         boolean islocked = false;
         boolean isactive = false;
 
-        int variableNo = Integer.parseInt(variable.substring(1, variable.length()));
+        int variableNo = Integer.parseInt(variable.substring(1));
         if(variableNo%2 == 1){
             siteNo = (variableNo%10);
             result = sites[siteNo].writedata(transaction,variable,value);
@@ -218,7 +219,7 @@ public class TransactionManager {
         HashMap<String,String> locktable = transactions.get(transaction).getLocktable();
         for(Map.Entry<String,String> lock: locktable.entrySet()) {
             String variable = lock.getKey();
-            int variablenumber = Integer.parseInt(variable.substring(1, variable.length()));
+            int variablenumber = Integer.parseInt(variable.substring(1));
 
             if(variablenumber%2 == 1) {
                 sites[variablenumber%10].removeLock(variable, transaction, commit, time);
@@ -321,7 +322,7 @@ public class TransactionManager {
         visited.add(u);
         recursion_stack.add(u);
         if(transactions.get(u).getStartTime() > transactions.get(youngest_transaction).getStartTime()) youngest_transaction = u;
-        for(String v : waitsForGraph.getOrDefault(u,  Collections.<String>emptySet())) {
+        for(String v : waitsForGraph.getOrDefault(u,  Collections.emptySet())) {
             if(!visited.contains(v)) {
                 Result cycle_result = dfs(v,visited,recursion_stack,youngest_transaction);
                 if(cycle_result.status) return cycle_result;
@@ -336,7 +337,7 @@ public class TransactionManager {
         HashSet<String> visited = new HashSet<>();
         HashSet<String> recursion_stack = new HashSet<>();
         for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
-            String u = (String)mapElement.getKey(); 
+            String u = mapElement.getKey();
             if(!visited.contains(u)) {
                 Result cycle_result = dfs(u, visited,recursion_stack, u);
                 if(cycle_result.status) return cycle_result;
@@ -351,8 +352,7 @@ public class TransactionManager {
             SiteFailHistory.put(site, new ArrayList<>());
         }
         SiteFailHistory.get(site).add(time);
-        System.out.println("-------------"+transactions);
-        sites[site].abortornot(transactions);
+        sites[site-1].abortornot(transactions);
         sites[site-1].changeStatus(Site.SiteStatus.FAIL);
     }
 
@@ -363,7 +363,7 @@ public class TransactionManager {
         Iterator<Operation> itr = failWaitOperations.iterator(); 
         while (itr.hasNext()) { 
             Operation operation = itr.next(); 
-            int variableNo = Integer.parseInt(operation.variable.substring(1,operation.variable.length()));
+            int variableNo = Integer.parseInt(operation.variable.substring(1));
             if (variableNo%2 == 0 || variableNo%10 + 1 == site) { 
                 if(operation.opType == "R") 
                     readRequest(operation.transaction, operation.variable);
@@ -376,13 +376,13 @@ public class TransactionManager {
 
     public void dump(){
         for(int siteNo=0; siteNo<10;siteNo++){
-            System.out.print("site " + (Integer.toString(siteNo+1)) +" - ");
+            System.out.print("site " + ((siteNo + 1)) +" - ");
             for(int varNo = 1;varNo<=20;varNo++){
                 String variable = "x".concat(Integer.toString(varNo));
                 if(varNo%2 == 1 && siteNo != varNo%10){
                     continue;
                 }
-                System.out.print(variable+": "+Integer.toString(sites[siteNo].getCommit(variable))+", ");
+                System.out.print(variable+": "+ sites[siteNo].getCommit(variable) +", ");
             }
             System.out.println();
         }
