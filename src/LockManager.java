@@ -23,8 +23,8 @@ public class LockManager {
     // getReadLock returns true if the transactions can get the lock
     // for the given variable or else it returns false. 
     // If the variable is not locked transaction is added to the locktable.
-    public SuccessFail getReadLock(String transaction, String variable){
-        SuccessFail result = new SuccessFail(false,-1,"");
+    public Result getReadLock(String transaction, String variable){
+        Result result = new Result(false,-1,"");
         LockTuple locktuple = lockTable.get(variable);
         if(locktuple == null){
             LockTuple newlocktuple = new LockTuple(transaction,"R");
@@ -45,8 +45,8 @@ public class LockManager {
     // getWriteLock returns true if the transactions can get the lock
     // for the given variable or else it returns false.
     // If the variable is not locked transaction is added to the locktable.
-    public SuccessFail getWriteLock(String transaction, String variable){
-        SuccessFail result = new SuccessFail(false,-1,"");
+    public Result getWriteLock(String transaction, String variable){
+        Result result = new Result(false,-1,"");
         LockTuple locktuple = lockTable.get(variable);
         if(locktuple == null){
             LockTuple newlocktuple = new LockTuple(transaction,"W");

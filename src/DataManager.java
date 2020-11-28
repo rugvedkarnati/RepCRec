@@ -69,9 +69,6 @@ public class DataManager {
     }
     public List<Integer> findData(String variable,int time){
         ArrayList<List<Integer>> time_data_list = db.get(variable).commitHistory;
-        System.out.println("------------");
-        System.out.println(time_data_list);
-        System.out.println("------------");
         if(time_data_list.get(time_data_list.size()-1).get(0) < time){
             return time_data_list.get(time_data_list.size()-1);
         }

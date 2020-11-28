@@ -1,4 +1,4 @@
-public class SuccessFail {
+public class Result {
     public boolean status;
 
     // This variable will be used when returning from a read operation.
@@ -9,7 +9,7 @@ public class SuccessFail {
     // It stores the transaction holding the locks.
     public String transaction;
     
-    public SuccessFail(boolean status,int value,String transaction){
+    public Result(boolean status,int value,String transaction){
         this.status = status;
         this.value = value;
         this.transaction = transaction;

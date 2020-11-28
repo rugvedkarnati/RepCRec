@@ -40,8 +40,8 @@ public class TransactionManager {
         time = 0;
     }
 
-    public SuccessFail snapshotResult(Transaction t, String variable,int siteNo){
-        SuccessFail result = new SuccessFail(false,0,t.getName());
+    public Result snapshotResult(Transaction t, String variable,int siteNo){
+        Result result = new Result(false,0,t.getName());
         if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
             List<Integer> time_data = sites[siteNo].finddata(variable, t.getStartTime());
             if(!SiteFailHistory.containsKey(siteNo)){
@@ -74,9 +74,9 @@ public class TransactionManager {
         return result;
     }
 
-    public SuccessFail readRequest(String transaction, String variable){
+    public Result readRequest(String transaction, String variable){
         Transaction t = transactions.get(transaction);
-        SuccessFail result = new SuccessFail(false,0,transaction);
+        Result result = new Result(false,0,transaction);
         if(lockWaitOperations.get(variable) != null){
             lockWaitOperations.get(variable).add(new Operation("R", -1,transaction,variable));
             waitsForGraph.get(transaction).add(result.transaction);
@@ -100,7 +100,7 @@ public class TransactionManager {
         }
         else{
             int siteNo = -1;
-            int variableNo = Integer.parseInt(variable.substring(1, variable.length()-1));
+            int variableNo = Integer.parseInt(variable.substring(1, variable.length()));
             if(variableNo%2 == 1){
                 siteNo = (variableNo%10);
                 result = sites[siteNo].readdata(transaction,variable);
@@ -118,7 +118,7 @@ public class TransactionManager {
                     if(waitsForGraph.get(transaction) == null)
                         waitsForGraph.put(transaction,new HashSet<>());
                     waitsForGraph.get(transaction).add(result.transaction);
-                    SuccessFail cycle_result = check_deadlock();
+                    Result cycle_result = check_deadlock();
                     if(cycle_result.status){
                         abort(cycle_result.transaction);
                     }
@@ -138,9 +138,9 @@ public class TransactionManager {
         }
     }
 
-    public SuccessFail writeRequest(String transaction, String variable, int value){
+    public Result writeRequest(String transaction, String variable, int value){
         Transaction t = transactions.get(transaction);
-        SuccessFail result = new SuccessFail(false,value,transaction);
+        Result result = new Result(false,value,transaction);
         if(lockWaitOperations.get(variable) != null){
             lockWaitOperations.get(variable).add(new Operation("W", value,transaction, variable));
             waitsForGraph.get(transaction).add(result.transaction);
@@ -192,7 +192,7 @@ public class TransactionManager {
             if(waitsForGraph.get(transaction) == null)
                 waitsForGraph.put(transaction,new HashSet<>());
             waitsForGraph.get(transaction).add(result.transaction);
-            SuccessFail cycle_result = check_deadlock();
+            Result cycle_result = check_deadlock();
             if(cycle_result.status){
                 abort(cycle_result.transaction);
             }
@@ -233,7 +233,7 @@ public class TransactionManager {
             }
             
             boolean check = true;
-            SuccessFail result = new SuccessFail(false, -1, transaction);
+            Result result = new Result(false, -1, transaction);
             while(lockWaitOperations.containsKey(variable) && check){
                 
                 Operation nextOperation = lockWaitOperations.get(variable).remove(0);
@@ -286,32 +286,32 @@ public class TransactionManager {
        release_locks(transaction,false);
     }
 
-    private SuccessFail dfs(String u, HashSet<String> visited, HashSet<String> recursion_stack, String youngest_transaction) {
+    private Result dfs(String u, HashSet<String> visited, HashSet<String> recursion_stack, String youngest_transaction) {
         visited.add(u);
         recursion_stack.add(u);
         if(transactions.get(u).getStartTime() > transactions.get(youngest_transaction).getStartTime()) youngest_transaction = u;
         for(String v : waitsForGraph.getOrDefault(u,  Collections.<String>emptySet())) {
             if(!visited.contains(v)) {
-                SuccessFail cycle_result = dfs(v,visited,recursion_stack,youngest_transaction);
+                Result cycle_result = dfs(v,visited,recursion_stack,youngest_transaction);
                 if(cycle_result.status) return cycle_result;
             } 
-            else if(recursion_stack.contains(v)) return new SuccessFail(true,-1,youngest_transaction);
+            else if(recursion_stack.contains(v)) return new Result(true,-1,youngest_transaction);
         }
         recursion_stack.remove(u);
-        return new SuccessFail(false, -1, youngest_transaction);
+        return new Result(false, -1, youngest_transaction);
     }
 
-    private SuccessFail check_deadlock(){
+    private Result check_deadlock(){
         HashSet<String> visited = new HashSet<>();
         HashSet<String> recursion_stack = new HashSet<>();
         for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
             String u = (String)mapElement.getKey(); 
             if(!visited.contains(u)) {
-                SuccessFail cycle_result = dfs(u, visited,recursion_stack, u);
+                Result cycle_result = dfs(u, visited,recursion_stack, u);
                 if(cycle_result.status) return cycle_result;
             } 
         } 
-        return new SuccessFail(false, -1, "");
+        return new Result(false, -1, "");
     }
 
     public void fail(int site){
@@ -354,12 +354,5 @@ public class TransactionManager {
             }
             System.out.println();
         }
-    }
-
-    public int getVar(){
-        return variables;
-    }
-    public Site getSite(int siteno){
-        return sites[siteno];
     }
 }

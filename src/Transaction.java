@@ -51,19 +51,4 @@ public class Transaction {
     public Status getStatus(){
         return tStatus;
     }
-    // Adds the data from the database to the snapshot
-    // public void addToSnapshot(Map<String,Integer> db,int site){
-    //     snapshot = new HashMap<String,Integer>(db);
-    //     snapshotSite = site;
-    // }
-
-    // Gets the value for the variable for a read only transaction
-    // public int getVal(String variable){
-    //     return snapshot.get(variable);
-    // }
-
-    // Returns the SiteNo from which the snapshot was taken.
-    // public int getSite(){
-    //     return snapshotSite;
-    // }
 }
