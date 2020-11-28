@@ -120,7 +120,7 @@ public class TransactionManager {
                     waitsForGraph.get(transaction).add(result.transaction);
                     Result cycle_result = check_deadlock();
                     if(cycle_result.status){
-                        abort(cycle_result.transaction);
+                        abort_commit(cycle_result.transaction,true);
                     }
                 }
 
@@ -190,7 +190,7 @@ public class TransactionManager {
             waitsForGraph.get(transaction).add(result.transaction);
             Result cycle_result = check_deadlock();
             if(cycle_result.status){
-                abort(cycle_result.transaction);
+                abort_commit(cycle_result.transaction,true);
             }
 
             //Add to lockWait table
@@ -257,34 +257,51 @@ public class TransactionManager {
                 System.out.println(oper.transaction+" "+oper.opType);
             });
         });
+
+        List<Operation> waitingOperations = new ArrayList<>();
+        lockWaitOperations.forEach((variable,operations) -> {
+            operations.forEach((operation) -> {
+                if(operation.transaction.equals(transaction)){
+                    waitingOperations.add(operation);
+                }
+            });
+        });
+
+        // Result result = new Result(false, -1, "");
+
+        waitingOperations.forEach((operation) ->{
+            Result result;
+            if(operation.opType == "W"){
+                result = writeRequest(operation.transaction, operation.variable, operation.value);
+                if(!result.status){
+                    transactions.get(transaction).setStatus(Status.TO_BE_ABORTED);
+                }
+            }
+            if(operation.opType == "R"){
+                result = readRequest(operation.transaction, operation.variable);
+                if(!result.status){
+                    transactions.get(transaction).setStatus(Status.TO_BE_ABORTED);
+                }
+            }
+        });
+
         if(transactions.get(transaction).getStatus().equals(Status.ACTIVE)){
-            commit(transaction);
-            System.out.println("Commit " + transaction);
+            abort_commit(transaction, false);
         }
         else if(transactions.get(transaction).getStatus().equals(Status.TO_BE_ABORTED)){
-            abort(transaction);
-            System.out.println("Abort " + transaction);
+            abort_commit(transaction, true);
         }
     }
 
-    public void commit(String transaction){
-        waitsForGraph.remove(transaction);
-        for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
-            mapElement.getValue().remove(transaction);
+    public void abort_commit(String transaction,boolean abort){
+        if(abort){
+            transactions.get(transaction).setStatus(Status.ABORTED);
+            System.out.println("ABORT "+transaction);
         }
-         //Remove transaction from lockWaitOperations
-        for(Map.Entry<String,ArrayList<Operation>> mapElement : lockWaitOperations.entrySet()) { 
-            mapElement.getValue().removeIf(operation -> operation.transaction.equals(transaction));
+        else{
+            transactions.get(transaction).setStatus(Status.COMMITTED);
+            System.out.println("COMMIT "+transaction);
         }
-        lockWaitOperations.entrySet().removeIf(entry -> lockWaitOperations.get(entry.getKey()).isEmpty()); 
-
-       release_locks(transaction,true);
-
-    }
-    
-    public void abort(String transaction) {
-        transactions.get(transaction).setStatus(Status.ABORTED);
-
         //Remove transaction from waitsforgraph
         waitsForGraph.remove(transaction);
         for(Map.Entry<String,Set<String>> mapElement : waitsForGraph.entrySet()) { 
@@ -297,7 +314,8 @@ public class TransactionManager {
         }
         lockWaitOperations.entrySet().removeIf(entry -> lockWaitOperations.get(entry.getKey()).isEmpty()); 
   
-       release_locks(transaction,false);
+       release_locks(transaction,!abort);
+
     }
 
     private Result dfs(String u, HashSet<String> visited, HashSet<String> recursion_stack, String youngest_transaction) {
