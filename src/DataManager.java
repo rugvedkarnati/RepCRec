@@ -7,10 +7,14 @@ public class DataManager {
         private int commitData; 
         private final int currentData;
         private final ArrayList<List<Integer>> commitHistory;
+
+        // Status of the variable.
+        private boolean isRecovered;
         public Data(int commitData, int currentData, ArrayList<List<Integer>> commitHistory) { 
           this.commitData = commitData; 
           this.currentData = currentData;
           this.commitHistory= commitHistory;
+          isRecovered = true;
         }
     }
 
@@ -51,12 +55,26 @@ public class DataManager {
     public boolean commit(String variable,int commitTime){
         int val = db.get(variable).currentData;
         db.get(variable).commitData = val;
-       
+
+        // Changes the status of the variable to recovered after a commit.
+        db.get(variable).isRecovered = true;
         List<Integer> tempList = new ArrayList<>();
         tempList.add(commitTime);
         tempList.add(val);
         db.get(variable).commitHistory.add(tempList);
         return true;
+    }
+
+    // Retruns the recovery status of the variable.
+    public boolean getRecoveryStatus(String variable){
+        return db.get(variable).isRecovered;
+    }
+
+    // Changes the recovery status of all the variables to false during site fail.
+    public void changeVarRecoveryStatus(){
+        db.forEach((variable,data) ->{
+            data.isRecovered = false;
+        });
     }
 
     // Returns a copy of the HashMap
@@ -67,6 +85,9 @@ public class DataManager {
         );
         return tempDB;
     }
+
+    // Returns the data committed at a time closest to the given time.
+    // Uses binary search technique to find the closest smaller value.
     public List<Integer> findData(String variable,int time){
         ArrayList<List<Integer>> time_data_list = db.get(variable).commitHistory;
         if(time_data_list.get(time_data_list.size()-1).get(0) <= time){

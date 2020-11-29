@@ -28,26 +28,32 @@ public class Transaction {
         return isRO;
     }
 
+    // Returns the name of the transaction.
     public String getName(){
         return name;
     }
 
+    // Returns the start time of the transaction.
     public int getStartTime(){
         return startTime;
     }
 
+    // Returns the locck table of the transaction.
     public HashMap<String,String> getLocktable() {
         return locktable;
     }
 
+    // Adds new lock to the lock table.
     public void addToLocktable(String variable, String type) {
         locktable.put(variable, type);
     }
 
+    // Changes the status of the transaction.
     public void setStatus(Status status){
         tStatus = status;
     }
 
+    // Returns the status of the transaction.
     public Status getStatus(){
         return tStatus;
     }

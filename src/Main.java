@@ -5,6 +5,8 @@ public class Main {
         TransactionManager t = new TransactionManager(10,20);
         FileInputStream file = null;
         Scanner sc;
+
+        // Checks if there is any file input
         if(args.length > 0){
             file = new FileInputStream(args[0]);
             sc = new Scanner(file);
@@ -12,6 +14,8 @@ public class Main {
         else{
             sc = new Scanner(System.in);
         }
+
+        // Reads line from input.
         while(sc.hasNextLine()){
             String command = sc.nextLine().strip();
             if(command == "") continue;
@@ -20,24 +24,31 @@ public class Main {
             String s = "";
             Result result;
             switch(splitCommand[0]){
-                case "begin": s = splitCommand[1].strip();
+                case "begin": t.addTime();
+                    s = splitCommand[1].strip();
                     t.beginTransaction(s.substring(0,s.length()-1));
                     break;
-                case "beginRO": s = splitCommand[1].strip();
+                case "beginRO": t.addTime();
+                    s = splitCommand[1].strip();
                     t.beginROTransaction(s.substring(0,s.length()-1));
                     break;
-                case "end": s = splitCommand[1].strip();
+                case "end": t.addTime();
+                    s = splitCommand[1].strip();
                     t.endTransaction(s.substring(0,s.length()-1));
                     break;
-                case "fail": s = splitCommand[1].strip();
+                case "fail": t.addTime();
+                    s = splitCommand[1].strip();
                     t.fail(Integer.parseInt(s.substring(0,s.length()-1)));
                     break;
-                case "recover": s = splitCommand[1].strip();
+                case "recover": t.addTime();
+                    s = splitCommand[1].strip();
                     t.recover(Integer.parseInt(s.substring(0,s.length()-1)));
                     break;
-                case "dump": t.dump();
+                case "dump": t.addTime();
+                    t.dump();
                     break;
-                case "R": s = splitCommand[1].strip();
+                case "R": t.addTime();
+                    s = splitCommand[1].strip();
                     String[] s1 = s.substring(0,s.length()-1).split(",");
                     s1[0] = s1[0].strip();
                     s1[1] = s1[1].strip();
@@ -52,7 +63,8 @@ public class Main {
                         System.out.println("LOCKS");
                     }
                     break;
-                case "W": s = splitCommand[1].strip();
+                case "W": t.addTime();
+                    s = splitCommand[1].strip();
                     String[] s2 = s.substring(0,s.length()-1).split(",");
                     s2[0] = s2[0].strip();
                     s2[1] = s2[1].strip();

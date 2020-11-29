@@ -40,6 +40,15 @@ public class TransactionManager {
         time = 0;
     }
 
+    // Increases time after every input operation.
+    public void addTime(){
+        time += 1;
+    }
+
+    // This method gets the value that was committed just before the beginning of the readOnly transaction.
+    // It also checks whether there was any fail site between that commit and the 
+    // start of the readOnly transaction. 
+    // We use concept of bisect_left(binary search) to find the closest value smaller than the given value.
     public Result snapshotResult(Transaction t, String variable,int siteNo){
         Result result = new Result(false,0,t.getName());
         if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)){
@@ -75,6 +84,8 @@ public class TransactionManager {
         return result;
     }
 
+    // This method is used to send a readRequest to the site for the given variable.
+    // It resurns whehter it was able to get the locks on that variable and also the value.
     public Result readRequest(String transaction, String variable){
         Transaction t = transactions.get(transaction);
         Result result = new Result(false,0,transaction);
@@ -117,10 +128,12 @@ public class TransactionManager {
                 transactions.get(transaction).addToLocktable(variable, "R");
             }
             else {
+                // This check happens for fail due to down site.
                 if(!isactive) {
                     failWaitOperations.add(new Operation("R",-1,transaction, variable));    
                 }
                 else{
+                    // This check happens for fail due to unavailable lock on the variable.
                     if(lockWaitOperations.get(variable) == null)
                         lockWaitOperations.put(variable,new ArrayList<>());
                     lockWaitOperations.get(variable).add(new Operation("R",-1,transaction, variable));
@@ -128,6 +141,8 @@ public class TransactionManager {
                     if(waitsForGraph.get(transaction) == null)
                         waitsForGraph.put(transaction,new HashSet<>());
                     waitsForGraph.get(transaction).add(result.transaction);
+
+                    // Check for cycle after every add to the graph.
                     Result cycle_result = check_deadlock();
                     if(cycle_result.status){
                         abort_commit(cycle_result.transaction,true);
@@ -139,6 +154,8 @@ public class TransactionManager {
         }
     }
 
+    // This method is used to send a write request to the available sites.
+    // It returns whether it was succesfull in writing the value to the variable.
     public Result writeRequest(String transaction, String variable, int value){
         Transaction t = transactions.get(transaction);
         Result result = new Result(false,value,transaction);
@@ -159,6 +176,7 @@ public class TransactionManager {
             }
         }
         else{
+            // Checking whether the transaction can get a write lock from any up site.
             while(siteNo<10){
                 result = sites[siteNo].canGetWriteLock(transaction, variable);
                 if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE) || sites[siteNo].getStatus().equals(Site.SiteStatus.RECOVER)){
@@ -171,6 +189,7 @@ public class TransactionManager {
                 siteNo++;
             }
 
+            // Writing data to the available sites.
             siteNo = 0;
             while(!islocked && isactive && siteNo<10){
                 if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE) || sites[siteNo].getStatus().equals(Site.SiteStatus.RECOVER)){
@@ -204,17 +223,36 @@ public class TransactionManager {
         return result;
     }
 
+    // Start a transaction
     public void beginTransaction(String transaction){
-        time += 1;
         Transaction t = new Transaction(transaction, false, Status.ACTIVE, time);
         transactions.put(transaction,t);
     }
+
+    // Start a readOnly transaction
     public void beginROTransaction(String transaction){
-        time += 1;
         Transaction t = new Transaction(transaction, true, Status.ACTIVE, time);
         transactions.put(transaction,t);
     }
 
+    public void executeFailWaitOperations(int siteNo){
+        Iterator<Operation> itr = failWaitOperations.iterator();
+        while (itr.hasNext()) { 
+            Operation operation = itr.next(); 
+            int variableNo = Integer.parseInt(operation.variable.substring(1));
+            if (variableNo%2 == 0 || variableNo%10 + 1 == siteNo) { 
+                if(operation.opType == "R"){ 
+                    readRequest(operation.transaction, operation.variable);
+                }
+                else if(operation.opType == "W"){
+                    writeRequest(operation.transaction, operation.variable, operation.value);
+                }
+                itr.remove(); 
+            } 
+        }
+    }
+    // Releases locks held by the transaction when it commits or aborts.
+    // Executes all the operations waiting for the locks.
     private void release_locks(String transaction,boolean commit) {
         HashMap<String,String> locktable = transactions.get(transaction).getLocktable();
         for(Map.Entry<String,String> lock: locktable.entrySet()) {
@@ -222,13 +260,19 @@ public class TransactionManager {
             int variablenumber = Integer.parseInt(variable.substring(1));
 
             if(variablenumber%2 == 1) {
-                sites[variablenumber%10].removeLock(variable, transaction, commit, time);
+                boolean r = sites[variablenumber%10].removeLock(variable, transaction, commit, time);
+                // Checks whether the stautus of the site changed to ACTIVE.
+                if(r) executeFailWaitOperations(variablenumber%10);
             }
             else {
                 for(int siteNo = 0; siteNo<10; siteNo++){
-                    sites[siteNo].removeLock(variable, transaction,commit,time);
+                    boolean r = sites[siteNo].removeLock(variable, transaction,commit,time);
+                    if(r) executeFailWaitOperations(siteNo);
                 }
             }
+            failWaitOperations.forEach((oper)->{
+                System.out.println(oper.transaction+" "+oper.opType);
+            });
             
             boolean check = true;
             Result result = new Result(false, -1, transaction);
@@ -258,8 +302,11 @@ public class TransactionManager {
         // });
     }
 
+    // End a transaction
+    // Execute any waiting operations of this transaction.
     public void endTransaction(String transaction){
-        time++;
+
+        // Finding the waiting operations for this transaction.
         List<Operation> waitingOperations = new ArrayList<>();
         lockWaitOperations.forEach((variable,operations) -> {
             operations.forEach((operation) -> {
@@ -293,6 +340,8 @@ public class TransactionManager {
         }
     }
 
+    // Aborts or Commits a transaction.
+    // Removes locks held by this transaction.
     public void abort_commit(String transaction,boolean abort){
         if(abort){
             transactions.get(transaction).setStatus(Status.ABORTED);
@@ -318,6 +367,7 @@ public class TransactionManager {
 
     }
 
+    // Depth First Search to find a cycle in the graph.
     private Result dfs(String u, HashSet<String> visited, HashSet<String> recursion_stack, String youngest_transaction) {
         visited.add(u);
         recursion_stack.add(u);
@@ -333,6 +383,7 @@ public class TransactionManager {
         return new Result(false, -1, youngest_transaction);
     }
 
+    // Deadlock detection.
     private Result check_deadlock(){
         HashSet<String> visited = new HashSet<>();
         HashSet<String> recursion_stack = new HashSet<>();
@@ -346,34 +397,29 @@ public class TransactionManager {
         return new Result(false, -1, "");
     }
 
+    // Changes the status of all the transaction holding locks in this site to "TO_BE_ABORTED".
     public void fail(int site){
-        time++;
-        if(!SiteFailHistory.containsKey(site)){
-            SiteFailHistory.put(site, new ArrayList<>());
+        sites[site-1].changeVarRecoveryStatus();
+
+        // Add the status to SiteFailHistory.
+        if(!SiteFailHistory.containsKey(site-1)){
+            SiteFailHistory.put(site-1, new ArrayList<>());
         }
-        SiteFailHistory.get(site).add(time);
-        sites[site-1].abortornot(transactions);
+        SiteFailHistory.get(site-1).add(time);
+
+        sites[site-1].tobeaborted(transactions);
         sites[site-1].changeStatus(Site.SiteStatus.FAIL);
     }
 
+    // Recovery of a site.
+    // Executes operations waiting for this site.
     public void recover(int site){
-        time++;
         sites[site-1].changeStatus(Site.SiteStatus.RECOVER);
-        
-        Iterator<Operation> itr = failWaitOperations.iterator(); 
-        while (itr.hasNext()) { 
-            Operation operation = itr.next(); 
-            int variableNo = Integer.parseInt(operation.variable.substring(1));
-            if (variableNo%2 == 0 || variableNo%10 + 1 == site) { 
-                if(operation.opType == "R") 
-                    readRequest(operation.transaction, operation.variable);
-                else if(operation.opType == "W") 
-                    writeRequest(operation.transaction, operation.variable, operation.value);
-                itr.remove(); 
-            } 
-        }
+        executeFailWaitOperations(site);
     }
 
+    // Outputs gives the committed values of all copies of all variables at all sites, 
+    // sorted per site with all values per site in ascending order by variable name.
     public void dump(){
         for(int siteNo=0; siteNo<10;siteNo++){
             System.out.print("site " + ((siteNo + 1)) +" - ");

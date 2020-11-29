@@ -64,15 +64,17 @@ public class LockManager {
         return result;
     }
 
-    public void removeLock(String variable,String t){
+    // Removes lock held by the given transaction on the given variable.
+    public void removeLock(String variable,String transaction){
         if(!lockTable.containsKey(variable)) return;
-        lockTable.get(variable).transactionList.remove(t);
+        lockTable.get(variable).transactionList.remove(transaction);
         if(lockTable.get(variable).transactionList.isEmpty()){
             lockTable.remove(variable);
         }
     }
 
-    public void abortornot(Map<String,Transaction> transactions){
+    // Changes the status of transactions to "TO_BE_ABORTED".
+    public void tobeaborted(Map<String,Transaction> transactions){
         lockTable.forEach((K,V) -> {
             V.transactionList.forEach((T) ->{
                 transactions.get(T).setStatus(Status.TO_BE_ABORTED);
