@@ -25,6 +25,7 @@ public class TransactionManager {
     private final HashMap<String,ArrayList<Operation>> lockWaitOperations;
     private final ArrayList<Operation> failWaitOperations;
     private final HashMap<Integer,List<Integer>> SiteFailHistory;
+    private final HashMap<String,String> WriteWaiting;
 
     TransactionManager(int siteCount,int variables){
         this.sites = new Site[siteCount];
@@ -37,6 +38,7 @@ public class TransactionManager {
         lockWaitOperations = new HashMap<>();
         failWaitOperations = new ArrayList<>();
         SiteFailHistory = new HashMap<>();
+        WriteWaiting = new HashMap<>();
         time = 0;
     }
 
@@ -159,7 +161,20 @@ public class TransactionManager {
     public Result writeRequest(String transaction, String variable, int value){
         Transaction t = transactions.get(transaction);
         Result result = new Result(false,value,transaction);
-       
+        if(WriteWaiting.getOrDefault(variable,null) != null){
+            lockWaitOperations.get(variable).add(new Operation("W",value,transaction, variable));
+
+            //Add to waitsforgraph and check/remove deadlock
+            result.status = false;
+            if(waitsForGraph.get(transaction) == null)
+                waitsForGraph.put(transaction,new HashSet<>());
+            waitsForGraph.get(transaction).add(WriteWaiting.get(variable));
+            Result cycle_result = check_deadlock();
+            if(cycle_result.status){
+                abort_commit(cycle_result.transaction,true);
+            }
+            return result;
+        }
         int siteNo = 0;
         boolean islocked = false;
         boolean isactive = false;
@@ -205,8 +220,11 @@ public class TransactionManager {
 
             //Add to lockWait table
             if(lockWaitOperations.get(variable) == null)
-            lockWaitOperations.put(variable,new ArrayList<>());
+                lockWaitOperations.put(variable,new ArrayList<>());
             lockWaitOperations.get(variable).add(new Operation("W",value,transaction, variable));
+            if(WriteWaiting.getOrDefault(variable,null) == null){
+                WriteWaiting.put(variable, transaction);
+            }
 
             //Add to waitsforgraph and check/remove deadlock
             result.status = false;
@@ -258,7 +276,8 @@ public class TransactionManager {
         for(Map.Entry<String,String> lock: locktable.entrySet()) {
             String variable = lock.getKey();
             int variablenumber = Integer.parseInt(variable.substring(1));
-
+            if(WriteWaiting.getOrDefault(variable, null) != null)
+                WriteWaiting.remove(variable);
             if(variablenumber%2 == 1) {
                 boolean r = sites[variablenumber%10].removeLock(variable, transaction, commit, time);
                 // Checks whether the stautus of the site changed to ACTIVE.
@@ -277,9 +296,7 @@ public class TransactionManager {
             boolean check = true;
             Result result = new Result(false, -1, transaction);
             while(lockWaitOperations.containsKey(variable) && check){
-                
                 Operation nextOperation = lockWaitOperations.get(variable).get(0);
-
                 if(nextOperation.opType == "R"){
                     result = readRequest(nextOperation.transaction, variable);
                 }
@@ -289,7 +306,7 @@ public class TransactionManager {
                 }
 
                 if(result.status) lockWaitOperations.get(variable).remove(0);
-                if(lockWaitOperations.get(variable).isEmpty()) lockWaitOperations.remove(variable);
+                if(lockWaitOperations.getOrDefault(variable,null) != null && lockWaitOperations.get(variable).isEmpty()) lockWaitOperations.remove(variable);
 
                 check = result.status;
             }
@@ -360,6 +377,10 @@ public class TransactionManager {
         //Remove transaction from lockWaitOperations
         for(Map.Entry<String,ArrayList<Operation>> mapElement : lockWaitOperations.entrySet()) { 
             mapElement.getValue().removeIf(operation -> operation.transaction.equals(transaction));
+            // System.out.println(mapElement.getKey());
+            // mapElement.getValue().forEach((oper)->{
+            //     System.out.println("ABORT"+oper.transaction+" "+oper.opType);
+            // });
         }
         lockWaitOperations.entrySet().removeIf(entry -> lockWaitOperations.get(entry.getKey()).isEmpty()); 
 
