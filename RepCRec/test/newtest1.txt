@@ -1,0 +1,18 @@
+// Test 1
+// T3 reads originial value of x2 which is 20. 
+// T4 reads the committed value of x2 which is 100.
+// All the transactions commit.
+begin(T1)
+begin(T2)
+beginRO(T3)
+W(T1, x2, 100)
+R(T3, x2)
+end(T1)
+beginRO(T4)
+R(T3, x2)
+R(T4, x2)
+W(T2, x2, 50)
+end(T2)
+end(T3)
+end(T4)
+dump()

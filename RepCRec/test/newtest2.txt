@@ -1,0 +1,18 @@
+// Test 2
+// T4 doesn’t skip in front of T3, as that might result in starvation for writes. 
+// The blocking (waits-for) graph will have edges from T3 to T2 from T3 to T1 and from T4 to T3
+// All transactions commit.
+
+begin(T1)
+begin(T2)
+begin(T3)
+begin(T4)
+R(T1,x2)
+R(T2,x2)
+W(T3,x2,5)
+R(T4,x2)
+end(T1)
+end(T2)
+end(T3)
+end(T4)
+dump()

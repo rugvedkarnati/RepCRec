@@ -1,0 +1,16 @@
+// Test 3
+// T1 waits until site 2 recovers.
+// T1 commits.
+
+begin(T1)
+fail(2)
+R(T1, x1)
+
+recover(2)
+fail(1)
+fail(4)
+fail(3)
+R(T1, x2)
+W(T1, x2, 9)
+end(T1)
+dump()
