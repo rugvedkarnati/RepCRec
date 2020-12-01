@@ -1,14 +1,30 @@
-## Getting Started
+## Replicated Concurrency Control and Recovery
 
-Welcome to the VS Code Java world. Here is a guideline to help you get started to write Java code in Visual Studio Code.
+### RUGVED SAI KARNATI (rsk517) , TANMAY GATLE (tvg238)
 
-## Folder Structure
+This project is a course project of Advanced Database System in NYU taught by Prof. Dennis Shasha.
 
-The workspace contains two folders by default, where:
+We simulated a tiny distributed database, complete with multi-version concurrency control, deadlock detection, replication, and failure recovery.
 
-- `src`: the folder to maintain sources
-- `lib`: the folder to maintain dependencies
+### ALGORITHMS:
+1. Available Copies Algorithm for replication.
+2. Strict Two-phase locking for Read/Write transactions.
+3. Multiversion Read Consistency for Read-Only transactions.
+4. DFS for deadlock cycle detection.
 
-## Dependency Management
+For more information refer to the design document.
 
-The `JAVA DEPENDENCIES` view allows you to manage your dependencies. More details can be found [here](https://github.com/microsoft/vscode-java-pack/blob/master/release-notes/v0.9.0.md#work-with-jar-files-directly).
+### Run this project
+```shell
+	javac ./src/*.java
+	java -cp ./src Main ./test/testfilename.txt
+```
+
+### Points to Note
+
+We will ensure that when a transaction is waiting, it will not receive another operation.
+
+Our application could prevent write starvation.
+
+For example, if requests arrive in the order R(T1,x), R(T2,x), W(T3,x,73), R(T4,x) then, assuming no transaction aborts, first T1 and T2 will share read locks on x, then T3 will obtain a write lock on x and then T4 a read lock on x. Note that T4 does not skip in front of T3, as that might result in starvation for writes.
+

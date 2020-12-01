@@ -73,6 +73,7 @@ public class LockManager {
         }
     }
 
+    // Remove all the locks held at this site.
     public void removeSiteLocks(){
         lockTable.clear();
     }

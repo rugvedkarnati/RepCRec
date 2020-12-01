@@ -45,6 +45,8 @@ public class Main {
                     t.recover(Integer.parseInt(s.substring(0,s.length()-1)));
                     break;
                 case "dump": t.addTime();
+                    System.out.println();
+                    System.out.println("DUMP:");
                     t.dump();
                     break;
                 case "R": t.addTime();
@@ -54,13 +56,13 @@ public class Main {
                     s1[1] = s1[1].strip();
                     result = t.readRequest(s1[0],s1[1]);
                     if(result.status){
-                        System.out.println("SUCCESS");
+                        System.out.println("SUCCESS READ");
                     }
                     else if(result.transaction.equals("")){
-                        System.out.println("FAIL");
+                        System.out.println("FAIL READ");
                     }
                     else{
-                        System.out.println("LOCKS");
+                        System.out.println(s1[1]+" LOCKED");
                     }
                     break;
                 case "W": t.addTime();
@@ -71,13 +73,13 @@ public class Main {
                     s2[2] = s2[2].strip();
                     result = t.writeRequest(s2[0],s2[1],Integer.parseInt(s2[2]));
                     if(result.status){
-                        System.out.println("SUCCESS");
+                        System.out.println("SUCCESS WRITE");
                     }
                     else if(result.transaction.equals("")){
-                        System.out.println("FAIL");
+                        System.out.println("FAIL WRITE");
                     }
                     else{
-                        System.out.println("LOCKS");
+                        System.out.println(s2[1]+" LOCKED");
                     }
                     break;
                 default: break;

@@ -124,6 +124,7 @@ public class Site {
         }
     }
 
+    // Returns the status of the variable after site recovery.
     public boolean getRecoveryStatus(String variable){
         return dm.getRecoveryStatus(variable);
     }

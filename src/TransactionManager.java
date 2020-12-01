@@ -162,6 +162,7 @@ public class TransactionManager {
                     // Check for cycle after every add to the graph.
                     Result cycle_result = check_deadlock();
                     if(cycle_result.status){
+                        System.out.println("DeadLock Detected");
                         abort_commit(cycle_result.transaction,true);
                     }
                 }
@@ -176,7 +177,19 @@ public class TransactionManager {
     public Result writeRequest(String transaction, String variable, int value){
         Transaction t = transactions.get(transaction);
         Result result = new Result(false,value,transaction);
-        
+        if(WriteWaiting.getOrDefault(variable,null) != null){
+            lockWaitOperations.get(variable).add(new Operation("W",value,transaction, variable));
+            //Add to waitsforgraph and check/remove deadlock
+            result.status = false;
+            if(waitsForGraph.get(transaction) == null)
+                waitsForGraph.put(transaction,new HashSet<>());
+            waitsForGraph.get(transaction).add(WriteWaiting.get(variable));
+            Result cycle_result = check_deadlock();
+            if(cycle_result.status){
+                abort_commit(cycle_result.transaction,true);
+            }
+            return result;
+        }
         int siteNo = 0;
         boolean islocked = false;
         boolean isactive = false;
@@ -235,6 +248,7 @@ public class TransactionManager {
             waitsForGraph.get(transaction).add(result.transaction);
             Result cycle_result = check_deadlock();
             if(cycle_result.status){
+                System.out.println("DeadLock Detected");
                 abort_commit(cycle_result.transaction,true);
             }
 
@@ -301,7 +315,6 @@ public class TransactionManager {
                     result = readRequest(nextOperation.transaction, variable);
                 }
                 else if(nextOperation.opType == "W"){
-                    System.out.println("NEXT TRANSACTION:"+nextOperation.transaction);
                     if(WriteWaiting.getOrDefault(variable, null) != null)
                         WriteWaiting.remove(variable);
                     result = writeRequest(nextOperation.transaction, variable, nextOperation.value);
@@ -318,23 +331,12 @@ public class TransactionManager {
                 check = result.status;
             }
         }
-        // System.out.println("Release Locks");
-        // lockWaitOperations.forEach((k,v)->{
-        //     v.forEach((oper)->{
-        //         System.out.println(oper.transaction+" "+oper.opType);
-        //     });
-        // });
     }
 
     // End a transaction
     // Execute any waiting operations of this transaction.
     public void endTransaction(String transaction){
 
-        lockWaitOperations.forEach((var,operation)->{
-            operation.forEach((oper)->{
-                System.out.println(oper.transaction+" "+oper.opType+" "+var);
-            });
-        });
         // Finding the waiting operations for this transaction.
         List<Operation> waitingOperations = new ArrayList<>();
 
@@ -348,13 +350,7 @@ public class TransactionManager {
                     itr.remove();
                 }
             }
-            // operations.forEach((operation) -> {
-            //     if(operation.transaction.equals(transaction)){
-            //         waitingOperations.add(operation);
-            //     }
-            // });
         });
-        // System.out.println(waitingOperations);
         waitingOperations.forEach((operation) ->{
             Result result;
             if(operation.opType == "W"){
@@ -399,10 +395,6 @@ public class TransactionManager {
         //Remove transaction from lockWaitOperations
         for(Map.Entry<String,ArrayList<Operation>> mapElement : lockWaitOperations.entrySet()) { 
             mapElement.getValue().removeIf(operation -> operation.transaction.equals(transaction));
-            // System.out.println(mapElement.getKey());
-            // mapElement.getValue().forEach((oper)->{
-            //     System.out.println("ABORT"+oper.transaction+" "+oper.opType);
-            // });
         }
         lockWaitOperations.entrySet().removeIf(entry -> lockWaitOperations.get(entry.getKey()).isEmpty()); 
 
