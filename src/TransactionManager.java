@@ -91,7 +91,19 @@ public class TransactionManager {
     public Result readRequest(String transaction, String variable){
         Transaction t = transactions.get(transaction);
         Result result = new Result(false,0,transaction);
-        
+        if(WriteWaiting.getOrDefault(variable,null) != null){
+            lockWaitOperations.get(variable).add(new Operation("R",-1,transaction, variable));
+            //Add to waitsforgraph and check/remove deadlock
+            result.status = false;
+            if(waitsForGraph.get(transaction) == null)
+                waitsForGraph.put(transaction,new HashSet<>());
+            waitsForGraph.get(transaction).add(WriteWaiting.get(variable));
+            Result cycle_result = check_deadlock();
+            if(cycle_result.status){
+                abort_commit(cycle_result.transaction,true);
+            }
+            return result;
+        }
         if(t.isReadOnly()){
             int variableNo = Integer.parseInt(variable.substring(1));
             if(variableNo%2 == 1){
@@ -106,6 +118,9 @@ public class TransactionManager {
                 }
             }
             if(!result.status) failWaitOperations.add(new Operation("R",-1,transaction, variable));
+            else{
+                System.out.println(variable+": "+ result.value);
+            }
             return result;
         }
         else{
@@ -115,13 +130,13 @@ public class TransactionManager {
             if(variableNo%2 == 1){
                 siteNo = (variableNo%10);
                 result = sites[siteNo].readdata(transaction,variable);
-                if(!sites[siteNo].getStatus().equals(Site.SiteStatus.FAIL)) isactive = true;
+                if(!sites[siteNo].getStatus().equals(Site.SiteStatus.FAIL) && sites[siteNo].getRecoveryStatus(variable)) isactive = true;
             }
             else{
                 do{
                     siteNo += 1;
                     result = sites[siteNo].readdata(transaction,variable);
-                    if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE)) isactive = true;
+                    if(sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE) && sites[siteNo].getRecoveryStatus(variable)) isactive = true;
                 }while(siteNo < 9 && !result.status && !sites[siteNo].getStatus().equals(Site.SiteStatus.ACTIVE));
             }
 
@@ -161,20 +176,7 @@ public class TransactionManager {
     public Result writeRequest(String transaction, String variable, int value){
         Transaction t = transactions.get(transaction);
         Result result = new Result(false,value,transaction);
-        if(WriteWaiting.getOrDefault(variable,null) != null){
-            lockWaitOperations.get(variable).add(new Operation("W",value,transaction, variable));
-
-            //Add to waitsforgraph and check/remove deadlock
-            result.status = false;
-            if(waitsForGraph.get(transaction) == null)
-                waitsForGraph.put(transaction,new HashSet<>());
-            waitsForGraph.get(transaction).add(WriteWaiting.get(variable));
-            Result cycle_result = check_deadlock();
-            if(cycle_result.status){
-                abort_commit(cycle_result.transaction,true);
-            }
-            return result;
-        }
+        
         int siteNo = 0;
         boolean islocked = false;
         boolean isactive = false;
@@ -217,14 +219,14 @@ public class TransactionManager {
         if(result.status) transactions.get(transaction).addToLocktable(variable, "W");
         else if(!isactive) failWaitOperations.add(new Operation("W",value,transaction, variable));
         else if(islocked) {
-
+            // Adding to writeWaiting
+            if(WriteWaiting.getOrDefault(variable,null) == null){
+                WriteWaiting.put(variable, transaction);
+            }
             //Add to lockWait table
             if(lockWaitOperations.get(variable) == null)
                 lockWaitOperations.put(variable,new ArrayList<>());
             lockWaitOperations.get(variable).add(new Operation("W",value,transaction, variable));
-            if(WriteWaiting.getOrDefault(variable,null) == null){
-                WriteWaiting.put(variable, transaction);
-            }
 
             //Add to waitsforgraph and check/remove deadlock
             result.status = false;
@@ -253,19 +255,22 @@ public class TransactionManager {
         transactions.put(transaction,t);
     }
 
+    // Executing Operations which were waiting for Fail
     public void executeFailWaitOperations(int siteNo){
         Iterator<Operation> itr = failWaitOperations.iterator();
+
         while (itr.hasNext()) { 
             Operation operation = itr.next(); 
+
             int variableNo = Integer.parseInt(operation.variable.substring(1));
             if (variableNo%2 == 0 || variableNo%10 + 1 == siteNo) { 
+                itr.remove(); 
                 if(operation.opType == "R"){ 
                     readRequest(operation.transaction, operation.variable);
                 }
                 else if(operation.opType == "W"){
                     writeRequest(operation.transaction, operation.variable, operation.value);
                 }
-                itr.remove(); 
             } 
         }
     }
@@ -276,22 +281,17 @@ public class TransactionManager {
         for(Map.Entry<String,String> lock: locktable.entrySet()) {
             String variable = lock.getKey();
             int variablenumber = Integer.parseInt(variable.substring(1));
-            if(WriteWaiting.getOrDefault(variable, null) != null)
-                WriteWaiting.remove(variable);
+            
             if(variablenumber%2 == 1) {
-                boolean r = sites[variablenumber%10].removeLock(variable, transaction, commit, time);
-                // Checks whether the stautus of the site changed to ACTIVE.
-                if(r) executeFailWaitOperations(variablenumber%10);
+                sites[variablenumber%10].removeLock(variable, transaction, commit, time);
             }
             else {
                 for(int siteNo = 0; siteNo<10; siteNo++){
-                    boolean r = sites[siteNo].removeLock(variable, transaction,commit,time);
-                    if(r) executeFailWaitOperations(siteNo);
+                    if(!sites[siteNo].getStatus().equals(Site.SiteStatus.FAIL)){
+                        sites[siteNo].removeLock(variable, transaction,commit,time);
+                    }
                 }
             }
-            failWaitOperations.forEach((oper)->{
-                System.out.println(oper.transaction+" "+oper.opType);
-            });
             
             boolean check = true;
             Result result = new Result(false, -1, transaction);
@@ -302,10 +302,17 @@ public class TransactionManager {
                 }
                 else if(nextOperation.opType == "W"){
                     System.out.println("NEXT TRANSACTION:"+nextOperation.transaction);
+                    if(WriteWaiting.getOrDefault(variable, null) != null)
+                        WriteWaiting.remove(variable);
                     result = writeRequest(nextOperation.transaction, variable, nextOperation.value);
                 }
 
-                if(result.status) lockWaitOperations.get(variable).remove(0);
+                if(result.status){
+                    lockWaitOperations.get(variable).remove(0);
+                }
+                else{
+                    lockWaitOperations.get(variable).remove(lockWaitOperations.get(variable).size()-1);
+                }
                 if(lockWaitOperations.getOrDefault(variable,null) != null && lockWaitOperations.get(variable).isEmpty()) lockWaitOperations.remove(variable);
 
                 check = result.status;
@@ -323,16 +330,31 @@ public class TransactionManager {
     // Execute any waiting operations of this transaction.
     public void endTransaction(String transaction){
 
-        // Finding the waiting operations for this transaction.
-        List<Operation> waitingOperations = new ArrayList<>();
-        lockWaitOperations.forEach((variable,operations) -> {
-            operations.forEach((operation) -> {
-                if(operation.transaction.equals(transaction)){
-                    waitingOperations.add(operation);
-                }
+        lockWaitOperations.forEach((var,operation)->{
+            operation.forEach((oper)->{
+                System.out.println(oper.transaction+" "+oper.opType+" "+var);
             });
         });
+        // Finding the waiting operations for this transaction.
+        List<Operation> waitingOperations = new ArrayList<>();
 
+        lockWaitOperations.forEach((variable,operations) -> {
+            Iterator<Operation> itr = operations.iterator();
+
+            while (itr.hasNext()) { 
+                Operation operation = itr.next(); 
+                if(operation.transaction.equals(transaction)){
+                    waitingOperations.add(operation);
+                    itr.remove();
+                }
+            }
+            // operations.forEach((operation) -> {
+            //     if(operation.transaction.equals(transaction)){
+            //         waitingOperations.add(operation);
+            //     }
+            // });
+        });
+        // System.out.println(waitingOperations);
         waitingOperations.forEach((operation) ->{
             Result result;
             if(operation.opType == "W"){
@@ -386,6 +408,11 @@ public class TransactionManager {
 
        release_locks(transaction,!abort);
 
+        // Executing failwait operations
+        for(int siteNo=0;siteNo<10;siteNo++){
+            executeFailWaitOperations(siteNo);
+        }
+
     }
 
     // Depth First Search to find a cycle in the graph.
@@ -421,7 +448,7 @@ public class TransactionManager {
     // Changes the status of all the transaction holding locks in this site to "TO_BE_ABORTED".
     public void fail(int site){
         sites[site-1].changeVarRecoveryStatus();
-
+        sites[site-1].changeStatus(Site.SiteStatus.FAIL);
         // Add the status to SiteFailHistory.
         if(!SiteFailHistory.containsKey(site-1)){
             SiteFailHistory.put(site-1, new ArrayList<>());
@@ -429,14 +456,14 @@ public class TransactionManager {
         SiteFailHistory.get(site-1).add(time);
 
         sites[site-1].tobeaborted(transactions);
-        sites[site-1].changeStatus(Site.SiteStatus.FAIL);
+        sites[site-1].removeSiteLocks();
     }
 
     // Recovery of a site.
     // Executes operations waiting for this site.
     public void recover(int site){
         sites[site-1].changeStatus(Site.SiteStatus.RECOVER);
-        executeFailWaitOperations(site);
+        executeFailWaitOperations(site-1);
     }
 
     // Outputs gives the committed values of all copies of all variables at all sites, 

@@ -40,15 +40,10 @@ public class DataManager {
 
     // Writing Data to the HashMap
     public boolean writeData(String variable,int value){
-        try{
-            int cData = db.get(variable).commitData;
-            ArrayList<List<Integer>> commitHistory = db.get(variable).commitHistory;
-            db.put(variable,new Data(cData,value,commitHistory));
-            return true;
-        }
-        catch(Exception e){
-            return false;
-        }
+        int cData = db.get(variable).commitData;
+        ArrayList<List<Integer>> commitHistory = db.get(variable).commitHistory;
+        db.put(variable,new Data(cData,value,commitHistory));
+        return true;
     }
 
     // Commit puts the current value of the given variable into commitData for that given variable

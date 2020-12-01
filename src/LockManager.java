@@ -73,6 +73,10 @@ public class LockManager {
         }
     }
 
+    public void removeSiteLocks(){
+        lockTable.clear();
+    }
+
     // Changes the status of transactions to "TO_BE_ABORTED".
     public void tobeaborted(Map<String,Transaction> transactions){
         lockTable.forEach((K,V) -> {

@@ -24,14 +24,15 @@ public class Site {
     // Either the site is down or else some other transaction holds the lock.
     public Result readdata(String t,String variable){
         Result s = new Result(false,-1,"");
-        int variableNo = Integer.parseInt(variable.substring(1));
-        if(status == SiteStatus.ACTIVE || (siteNo == 1+variableNo%10 && status == SiteStatus.RECOVER)){
-            s = lm.getReadLock(t,variable);
-            if(s.status && dm.getRecoveryStatus(variable)){
+        int variableNo = Integer.parseInt(variable.substring(1));        
+        if((siteNo == 1+variableNo%10 && status == SiteStatus.RECOVER) || getRecoveryStatus(variable)){
+            s = lm.getReadLock(t,variable);            
+            if(s.status){                
                 s.value = dm.readCommitData(variable);
+                s.status = true;
             }
         }
-        else{
+        else{            
             s.status = false;
         }
         return s;
@@ -39,7 +40,11 @@ public class Site {
 
     // Checks whether the transaction can get a lock for the given variable.
     public Result canGetWriteLock(String t,String variable){
-        return lm.getWriteLock(t,variable);
+        Result s = new Result(false,-1,"");
+        if(!status.equals(SiteStatus.FAIL)){
+            s = lm.getWriteLock(t,variable);
+        }
+        return s;
     }
 
     // Writes data to the database for this site using the datamanager.
@@ -47,7 +52,6 @@ public class Site {
     public Result writedata(String t,String variable,int value){
         Result s = new Result(false,-1,"");
         if(!status.equals(SiteStatus.FAIL)){
-            // status = SiteStatus.ACTIVE;
             s = lm.getWriteLock(t,variable);
             if(s.status){
                 s.status = dm.writeData(variable,value);
@@ -115,12 +119,22 @@ public class Site {
     // Changes status of variable at this site during fail.
     public void changeVarRecoveryStatus(){
         activeVarCount = 0;
-        dm.changeVarRecoveryStatus();
+        if(!status.equals(SiteStatus.FAIL)){
+            dm.changeVarRecoveryStatus();
+        }
+    }
+
+    public boolean getRecoveryStatus(String variable){
+        return dm.getRecoveryStatus(variable);
     }
 
     // Returns the active variables count at this site.
     public int getActiveVarCount(){
         return activeVarCount;
+    }
+
+    public void removeSiteLocks(){
+        lm.removeSiteLocks();
     }
 
     // Initial write at the start of the site.

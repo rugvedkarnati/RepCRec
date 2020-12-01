@@ -18,7 +18,7 @@ public class Main {
         // Reads line from input.
         while(sc.hasNextLine()){
             String command = sc.nextLine().strip();
-            if(command == "") continue;
+            if(command == "" || command.substring(0,1) == "/") continue;
             System.out.println(command);
             String[] splitCommand = command.split("\\(");
             String s = "";
