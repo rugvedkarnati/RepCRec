@@ -16,8 +16,20 @@ For more information refer to the design document.
 
 ### Run this project
 ```shell
-	javac ./src/*.java
-	java -cp ./src Main ./test/testfilename.txt
+	javac RepCRec/src/*.java
+	java -cp RepCRec/src Main RepCRec/test/<testfilename.txt>
+```
+### Run this project using ReproZip
+> Requires Vagrant preinstalled
+```shell
+	pip3 install reprounzip-vagrant
+	reprounzip vagrant setup repcrec.rpz myproject
+	reprounzip vagrant run myproject
+```
+> To specify new input files
+```shell
+	reprounzip vagrant upload myproject /RepCRec/test/<newfilename.txt>:arg
+	reprounzip vagrant run myproject
 ```
 
 ### Points to Note
