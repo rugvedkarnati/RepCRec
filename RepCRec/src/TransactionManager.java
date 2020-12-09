@@ -398,7 +398,14 @@ public class TransactionManager {
         }
         lockWaitOperations.entrySet().removeIf(entry -> lockWaitOperations.get(entry.getKey()).isEmpty()); 
 
-       release_locks(transaction,!abort);
+        HashSet<String> keys = new HashSet<>(WriteWaiting.keySet());
+        keys.forEach((K) -> {
+            if(WriteWaiting.get(K).equals(transaction)){
+                WriteWaiting.remove(K);
+            }
+        });
+
+        release_locks(transaction,!abort);
 
         // Executing failwait operations
         for(int siteNo=0;siteNo<10;siteNo++){
